@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: keepfresh-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  backend:
+    build: ./backend
+    container_name: keepfresh-backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+
+  frontend:
+    build: ./frontend
+    container_name: keepfresh-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  mongodb_data:
