@@ -12,7 +12,7 @@ export default function Login() {
     router.push('/userhome');
   }
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 gap-4">
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 gap-4 bg-green-50">
       <h1 className="text-4xl font-bold">KeepFresh Login</h1>
       <p className="mt-4">Login Below</p>
       <form onSubmit={handleSubmit} className="min-h-screen p-8 flex flex-col items-center justify-center gap-4">
@@ -21,18 +21,18 @@ export default function Login() {
           placeholder="Enter Username: "
           value={username}
           onChange={(e) => setUsername(e.target.value)}     
-          className="p-8"
+          className="p-4 rounded-lg border border-green-300 gap-4"
         />
         <input
           type="password"
           placeholder="Enter Password: "
           value={password}
           onChange={(e) => setPassword(e.target.value)}    
-          className="p-8" 
+          className="p-4 rounded-lg border border-green-300 gap-4" 
         />
         <button
           type="submit"
-          className="bg-blue-600 text-white"
+          className="bg-green-600 text-white"
         >
           Log In
         </button>
