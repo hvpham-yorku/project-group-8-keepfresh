@@ -40,8 +40,7 @@ async def root():
     """Root endpoint - API status check"""
     return {"message": "Backend running", "version": "1.0.0"}
 
-# @app.post("/signup")
-# async def signup(user: User):
-#     print("I got to the backend")
-#     service.create_user(user)
-#     return {"status": "user created"}
+@app.post("/signup")
+async def signup(user: User):
+    service.create_user(user)
+    return {"status": "ok"}
