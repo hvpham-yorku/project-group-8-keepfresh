@@ -7,9 +7,26 @@ export default function Login() {
   const [username, setUsername ] = useState('');
   const [password, setPassword ] = useState('');
   const router = useRouter();
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push('/userhome');
+    try {
+      const api = await fetch("http://localhost:8000/login",{
+        method: "POST",
+        headers: {
+         "Content-Type": "application/json",
+        },
+        body: JSON.stringify({username, password}),
+      });
+      if(api.ok){
+        router.push('/userhome');
+      }
+      else{
+        alert("Login Failed");
+      }
+    }
+    catch(err){
+      alert("Network Error");
+    }
   }
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 gap-4 bg-green-50">

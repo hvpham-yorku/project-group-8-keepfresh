@@ -14,4 +14,11 @@ class Service:
         }
         self.users_collection.insert_one(user_dict)
 
+    def find_user(self, user: User):
+        user = self.users_collection.find_one({
+            "username" : user.username,
+            "password" : user.password
+        })
+        return user
+
         

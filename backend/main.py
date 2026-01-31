@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from services.service import Service
 from fastapi.middleware.cors import CORSMiddleware
 from models.user import User
+from fastapi import HTTPException
 
 app = FastAPI(
     title="KeepFresh API",
@@ -44,3 +45,12 @@ async def root():
 async def signup(user: User):
     service.create_user(user)
     return {"status": "ok"}
+
+@app.post("/login")
+async def login(user: User):
+    check = service.find_user(user)
+    if check:
+        return {"status": "ok"}
+    else:
+        raise HTTPException(status_code=401, detail="Invalid")
+
