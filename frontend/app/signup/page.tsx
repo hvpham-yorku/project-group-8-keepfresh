@@ -6,9 +6,26 @@ export default function SignUp() {
   const [username, setUsername ] = useState('');
   const [password, setPassword ] = useState('');
   const router = useRouter();
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push('/login');
+    try {
+      const api = await fetch("http://localhost:8000/signup",{
+        method: "POST",
+        headers: {
+         "Content-Type": "application/json",
+        },
+        body: JSON.stringify({username, password}),
+      });
+      if(api.ok){
+        router.push('/login');
+      }
+      else{
+        alert("SignUp Failed");
+      }
+    }
+    catch(err){
+      alert("Network Error");
+    }
   }
 
 
