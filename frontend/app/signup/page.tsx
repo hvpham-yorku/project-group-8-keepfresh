@@ -2,31 +2,45 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+const MIN_LENGTH = 3;
+
 export default function SignUp() {
-  const [username, setUsername ] = useState('');
-  const [password, setPassword ] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const router = useRouter();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    if (username.trim().length < MIN_LENGTH) {
+      setError(`Username must be at least ${MIN_LENGTH} characters`);
+      return;
+    }
+    if (password.length < MIN_LENGTH) {
+      setError(`Password must be at least ${MIN_LENGTH} characters`);
+      return;
+    }
     try {
-      const api = await fetch("http://localhost:8000/signup",{
-        method: "POST",
-        headers: {
-         "Content-Type": "application/json",
-        },
-        body: JSON.stringify({username, password}),
+      const api = await fetch('http://localhost:8000/signup',{
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), password }),
       });
-      if(api.ok){
+      const data = await api.json().catch(() => ({}));
+      if (api.ok) {
         router.push('/login');
+        return;
       }
-      else{
-        alert("SignUp Failed");
-      }
+      const detail = data.detail;
+      const msg = Array.isArray(detail)
+        ? detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join(', ') || 'Validation failed'
+        : detail || (api.status === 409 ? 'Username already taken' : 'Sign up failed');
+      setError(msg);
+    } catch {
+      setError('Network error');
     }
-    catch(err){
-      alert("Network Error");
-    }
-  }
+  };
 
 
   return (
@@ -34,6 +48,7 @@ export default function SignUp() {
       <h1 className="text-4xl font-bold">KeepFresh Sign Up</h1>
       <p className="mt-4">Sign Up Below!</p>
       <form onSubmit={handleSubmit} className="min-h-screen p-8 flex flex-col items-center justify-center gap-4">
+        {error && <p className="text-red-600 font-medium">{error}</p>}
         <input
           type="text"
           placeholder="Enter Username: "
