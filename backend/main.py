@@ -1,4 +1,8 @@
 from fastapi import FastAPI
+from services.service import Service
+from fastapi.middleware.cors import CORSMiddleware
+from models.user import User
+from fastapi import HTTPException
 
 app = FastAPI(
     title="KeepFresh API",
@@ -23,7 +27,30 @@ app = FastAPI(
     ],
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+service = Service()
+
 @app.get("/", tags=["health"])
 async def root():
     """Root endpoint - API status check"""
     return {"message": "Backend running", "version": "1.0.0"}
+
+@app.post("/signup")
+async def signup(user: User):
+    service.create_user(user)
+    return {"status": "ok"}
+
+@app.post("/login")
+async def login(user: User):
+    check = service.find_user(user)
+    if check:
+        return {"status": "ok"}
+    else:
+        raise HTTPException(status_code=401, detail="Invalid")
+
