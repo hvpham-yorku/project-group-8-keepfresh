@@ -7,7 +7,12 @@ class Service:
         self.db = self.client["keepfresh"]
         self.users_collection = self.db["users"]
 
+    def user_exists_by_username(self, username: str) -> bool:
+        return self.users_collection.find_one({"username": username}) is not None
+
     def create_user(self, user: User):
+        if self.user_exists_by_username(user.username):
+            raise ValueError("Username already taken")
         user_dict = {
             "username": user.username,
             "password": user.password
