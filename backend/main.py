@@ -43,8 +43,13 @@ async def root():
 
 @app.post("/signup")
 async def signup(user: User):
-    service.create_user(user)
-    return {"status": "ok"}
+    try:
+        service.create_user(user)
+        return {"status": "ok"}
+    except ValueError as e:
+        if "already taken" in str(e).lower():
+            raise HTTPException(status_code=409, detail="Username already taken")
+        raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/login")
 async def login(user: User):
