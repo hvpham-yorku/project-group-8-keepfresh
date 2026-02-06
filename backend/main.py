@@ -3,6 +3,7 @@ from services.service import Service
 from fastapi.middleware.cors import CORSMiddleware
 from models.user import User
 from fastapi import HTTPException
+from config.auth import encode_token, decode_token, get_user_from_token
 
 app = FastAPI(
     title="KeepFresh API",
@@ -55,7 +56,8 @@ async def signup(user: User):
 async def login(user: User):
     check = service.find_user(user)
     if check:
-        return {"status": "ok"}
+        token = encode_token(user.username)
+        return {"status": "ok", "user_token": token}
     else:
         raise HTTPException(status_code=401, detail="Invalid")
 

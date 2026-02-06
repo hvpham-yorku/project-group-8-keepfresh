@@ -28,6 +28,8 @@ export default function Login() {
         body: JSON.stringify({ username: username.trim(), password }),
       });
       if (api.ok) {
+        const token = await api.json();
+        localStorage.setItem("user_token", token.user_token);
         router.push('/userhome');
         return;
       }
