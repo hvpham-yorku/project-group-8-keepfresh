@@ -6,7 +6,7 @@ from fastapi import Depends, HTTPException
 def encode_token(username: str):
     payload = {
         "sub": username,
-        "exp": datetime.utcnow() + timedelta(minutes=180),
+        "exp": datetime.utcnow() + timedelta(minutes=30),
     }
     return jwt.encode(payload, "key", algorithm="HS256")
 
