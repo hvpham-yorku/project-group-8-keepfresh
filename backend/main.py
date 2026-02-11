@@ -57,7 +57,7 @@ async def login(user: User):
     check = service.find_user(user)
     if check:
         token = encode_token(user.username)
-        return {"status": "ok", "user_token": token}
+        return {"status": "ok", "user_token": token, "username": user.username}
     else:
         raise HTTPException(status_code=401, detail="Invalid")
 
