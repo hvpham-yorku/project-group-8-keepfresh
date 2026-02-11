@@ -28,8 +28,9 @@ export default function Login() {
         body: JSON.stringify({ username: username.trim(), password }),
       });
       if (api.ok) {
-        const token = await api.json();
-        localStorage.setItem("user_token", token.user_token);
+        const data = await api.json();
+        localStorage.setItem("user_token", data.user_token);
+        if (data.username) localStorage.setItem("username", data.username);
         router.push('/userhome');
         return;
       }
