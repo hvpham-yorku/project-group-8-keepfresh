@@ -1,6 +1,7 @@
 'use client';
-import { use, useEffect } from "react";
+import { useEffect } from "react";
 import { useState } from "react";
+import { useRouter } from 'next/navigation';
 
 type Item = {
   id: string;
@@ -10,21 +11,30 @@ type Item = {
 
 
 export default function UserHome() {
+  const router = useRouter();
+
   const [username, setUsername] = useState<string>('');
   const [items, setItems] = useState<Item[]>([
     { id: '1', itemName: 'Milk', expiryDate: '2026-02-14' },
     { id: '2', itemName: 'Lettuce', expiryDate: '2026-02-15' },
     { id: '3', itemName: 'Chicken', expiryDate: '2026-02-16' },
   ]);
+  const [error, setError] = useState<string>('');
 
-    const [error, setError] = useState<string>('');
+  useEffect(() => {
+    const user_token = localStorage.getItem("user_token");
+    if (!user_token) {
+      router.push("/login");
+    }
+  }, [router]);
 
-    useEffect(() => {
-      const storedUsername = localStorage.getItem('username');
-      if (storedUsername) {
-        setUsername(storedUsername);
-      }
-    }, []);
+  useEffect(() => {
+    const storedUsername = localStorage.getItem('username');
+    console.log('storedUsername:', storedUsername); //test to see if im getting the user name
+    if (storedUsername) {
+      setUsername(storedUsername);
+    }
+  }, []);
 
     const handleAdd = () => {
     const itemName = prompt('Enter Food Name: ');
@@ -46,7 +56,6 @@ export default function UserHome() {
       expiryDate: expiryDate.trim(),
     };
     setItems((prev) => [...prev, newItem]);
-    setUsername
     setError('');
   }
 
