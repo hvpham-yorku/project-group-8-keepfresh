@@ -63,17 +63,30 @@ export default function UserHome() {
       setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
+  const handleLogout = () => {
+  localStorage.removeItem("username");
+  localStorage.removeItem("user_token");
+  router.push("/login");
+  };
+
   return (
   <div className="min-h-screen bg-green-50">
     <div className="px-10 py-12">
       <div className="max-w-3xl space-y-8">
-        <div className="space-y-1">
+        <div className="flex items-center justify-between">
           <h1 className="text-3xl font-semibold text-gray-900">
             Welcome back, <span className="font-bold">{username}!</span>
           </h1>
           <p className="text-gray-600">
             Here’s your current fridge!
           </p>
+        </div>
+        <button
+        onClick={handleLogout}
+        className="rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600"
+        >
+        Logout
+        </button>
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm ring-1 ring-green-200">
           <div className="flex items-center justify-between mb-4">
