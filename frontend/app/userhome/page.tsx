@@ -63,6 +63,12 @@ export default function UserHome() {
       setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
+  const handleLogout = () => {
+  localStorage.removeItem("user_token");
+  localStorage.removeItem("username");
+  router.push("/login");
+  };
+
   return (
   <div className="min-h-screen bg-green-50">
     <div className="px-10 py-12">
