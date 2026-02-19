@@ -1,6 +1,16 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  Alert,
+  Box,
+  Button,
+  Container,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 
 const MIN_LENGTH = 3;
 
@@ -22,7 +32,7 @@ export default function SignUp() {
       return;
     }
     try {
-      const api = await fetch('http://localhost:8000/signup',{
+      const api = await fetch('http://localhost:8000/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password }),
@@ -32,45 +42,72 @@ export default function SignUp() {
         router.push('/login');
         return;
       }
-      const detail = data.detail;
-      const msg = Array.isArray(detail)
-        ? detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join(', ') || 'Validation failed'
-        : detail || (api.status === 409 ? 'Username already taken' : 'Sign up failed');
+      const detail = (data as { detail?: unknown }).detail as
+        | { msg?: string }[]
+        | string
+        | undefined;
+      const msg =
+        Array.isArray(detail)
+          ? detail
+              .map((d) => d?.msg)
+              .filter(Boolean)
+              .join(', ') || 'Validation failed'
+          : detail || (api.status === 409 ? 'Username already taken' : 'Sign up failed');
       setError(msg);
     } catch {
       setError('Network error');
     }
   };
 
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 gap-4 bg-green-50">
-      <h1 className="text-4xl font-bold">KeepFresh Sign Up</h1>
-      <p className="mt-4">Sign Up Below!</p>
-      <form onSubmit={handleSubmit} className="min-h-screen p-8 flex flex-col items-center justify-center gap-4">
-        {error && <p className="text-red-600 font-medium">{error}</p>}
-        <input
-          type="text"
-          placeholder="Enter Username: "
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}     
-          className="p-4 rounded-lg border border-green-300 gap-4"
-        />
-        <input
-          type="password"
-          placeholder="Enter Password: "
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}    
-          className="p-4 rounded-lg border border-green-300 gap-4"
-        />
-        <button
-          type="submit"
-          className="bg-green-600 text-white"
-        >
-          Sign Up
-        </button>
+    <Container
+      maxWidth="sm"
+      sx={{
+        minHeight: 'calc(100vh - 64px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+        <Stack spacing={3}>
+          <Box textAlign="center">
+            <Typography variant="h4" component="h1" fontWeight={700}>
+              KeepFresh Sign Up
+            </Typography>
+            <Typography color="text.secondary">Create an account to track your fridge</Typography>
+          </Box>
 
-      </form>
-    </div>
+          {error && (
+            <Alert severity="error" variant="outlined">
+              {error}
+            </Alert>
+          )}
+
+          <Box component="form" onSubmit={handleSubmit}>
+            <Stack spacing={2}>
+              <TextField
+                label="Username"
+                placeholder="Enter username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                fullWidth
+              />
+              <TextField
+                label="Password"
+                placeholder="Enter password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                fullWidth
+              />
+              <Button type="submit" variant="contained" color="primary" size="large" fullWidth>
+                Sign Up
+              </Button>
+            </Stack>
+          </Box>
+        </Stack>
+      </Paper>
+    </Container>
   );
 }
