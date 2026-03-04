@@ -1,5 +1,6 @@
 from pymongo import MongoClient
 from models.user import User
+from config.auth import decode_token
 
 class Service:
     def __init__(self):
@@ -26,4 +27,8 @@ class Service:
         })
         return user
 
-        
+    def extract_user_from_token(self, token: str):
+        payload = decode_token(token)
+        username = payload["sub"]
+        user = self.users_collection.find_one({"username": username})
+        return user
