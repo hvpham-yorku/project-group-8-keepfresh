@@ -61,3 +61,34 @@ async def login(user: User):
     else:
         raise HTTPException(status_code=401, detail="Invalid")
 
+@app.post("/items", tags=["items"])
+async def add_food_item(food_item: FoodItem, authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+    
+    token = authorization.replace("Bearer ", "").strip()
+    username = extract_user_from_token(token)
+
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid user token")
+    try:
+        result = service.add_food_item(username, food_item)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid")
+    
+@app.get("/items", tags=["items"])
+async def get_food_items(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+
+    token = authorization.replace("Bearer ", "").strip()
+    username = extract_user_from_token(token)
+
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid user token")
+    try:
+        items = service.get_user_food_items(username)
+        return {"status": "ok", "items": items}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid")
