@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from services.service import Service
 from fastapi.middleware.cors import CORSMiddleware
 from models.user import User
-from fastapi import HTTPException
+from fastapi import HTTPException, Header
 from config.auth import encode_token, decode_token, get_user_from_token
+from models.food import FoodItem
 
 app = FastAPI(
     title="KeepFresh API",
@@ -67,7 +68,7 @@ async def add_food_item(food_item: FoodItem, authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Not Authorized")
     
     token = authorization.replace("Bearer ", "").strip()
-    username = extract_user_from_token(token)
+    username = get_user_from_token(token)
 
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
@@ -83,7 +84,7 @@ async def get_food_items(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Not Authorized")
 
     token = authorization.replace("Bearer ", "").strip()
-    username = extract_user_from_token(token)
+    username = get_user_from_token(token)
 
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
