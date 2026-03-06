@@ -10,6 +10,7 @@ class Service:
         self.db = self.client["keepfresh"]
         self.users_collection = self.db["users"]
         self.items_collection = self.db["items"]
+        self.fridge_collection = self.db["fridge"]
 
     def user_exists_by_username(self, username: str) -> bool:
         return self.users_collection.find_one({"username": username}) is not None
@@ -32,27 +33,38 @@ class Service:
         return user
 
     def update_item(self, item_id: str, item: Item):
-        result = self.items_collection.update_one(
+        """Update a fridge item by _id (itemName, expiryDate)."""
+        update = {}
+        if item.name is not None:
+            update["itemName"] = item.name
+        if item.expiry_date is not None:
+            update["expiryDate"] = item.expiry_date
+        if not update:
+            doc = self.fridge_collection.find_one({"_id": ObjectId(item_id)})
+            if not doc:
+                raise ValueError("Item not found")
+            doc["id"] = str(doc.pop("_id"))
+            return doc
+        result = self.fridge_collection.update_one(
             {"_id": ObjectId(item_id)},
-            {"$set": item.model_dump(exclude_none=True)}
+            {"$set": update}
         )
         if result.matched_count == 0:
             raise ValueError("Item not found")
-        doc = self.items_collection.find_one({"_id": ObjectId(item_id)})
-        doc["_id"] = str(doc["_id"])
+        doc = self.fridge_collection.find_one({"_id": ObjectId(item_id)})
+        doc["id"] = str(doc.pop("_id"))
         return doc
 
     def add_user_food_item(self, username: str, food_item: FoodItem):
-        result = self.users_collection.update_one(
-            {"username": username},
-            {"$push": {"food_items": food_item.dict()}}
-        )
-        if result.matched_count == 0:
-            raise ValueError(f"User not found")
-        return {"status": "ok", "item_id": food_item.id}
+        item_doc = food_item.model_dump()
+        item_doc["username"] = username
+        result = self.fridge_collection.insert_one(item_doc)
+        return {"status": "ok", "item_id": str(result.inserted_id)}
 
     def get_user_food_items(self, username: str):
-        user = self.users_collection.find_one({"username": username})
-        if not user:
-            raise ValueError(f"User not found")
-        return user.get("food_items", [])
+        cursor = self.fridge_collection.find({"username": username})
+        items = []
+        for doc in cursor:
+            doc["id"] = str(doc.pop("_id", doc.get("id", "")))
+            items.append(doc)
+        return items
