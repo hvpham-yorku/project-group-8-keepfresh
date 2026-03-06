@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from models.user import User
 from models.item import Item
 from fastapi import HTTPException, Header
-from config.auth import encode_token, decode_token, get_user_from_token
+from config.auth import encode_token, decode_token, get_user_from_token, get_username_from_token_string
 from models.food import FoodItem
 
 app = FastAPI(
@@ -78,7 +78,7 @@ async def add_food_item(food_item: FoodItem, authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Not Authorized")
     
     token = authorization.replace("Bearer ", "").strip()
-    username = get_user_from_token(token)
+    username = get_username_from_token_string(token)
 
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
@@ -94,7 +94,7 @@ async def get_food_items(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Not Authorized")
 
     token = authorization.replace("Bearer ", "").strip()
-    username = get_user_from_token(token)
+    username = get_username_from_token_string(token)
 
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
