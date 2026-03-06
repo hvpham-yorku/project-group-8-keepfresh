@@ -13,6 +13,14 @@ def encode_token(username: str):
 def decode_token(token: str):
     return jwt.decode(token, "key", algorithms=["HS256"])
 
+def get_username_from_token_string(token: str):
+    """Parse raw Bearer token string; returns username or None if invalid."""
+    try:
+        payload = decode_token(token)
+        return payload.get("sub")
+    except Exception:
+        return None
+
 myBearer = HTTPBearer()
 
 def get_user_from_token(credentials: HTTPAuthorizationCredentials = Depends(myBearer)):

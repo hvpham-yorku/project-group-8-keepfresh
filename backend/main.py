@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from services.service import Service
 from fastapi.middleware.cors import CORSMiddleware
 from models.user import User
+from models.item import Item
 from fastapi import HTTPException, Header
-from config.auth import encode_token, decode_token, get_user_from_token
+from config.auth import encode_token, decode_token, get_user_from_token, get_username_from_token_string
 from models.food import FoodItem
 
 app = FastAPI(
@@ -62,18 +63,27 @@ async def login(user: User):
     else:
         raise HTTPException(status_code=401, detail="Invalid")
 
+@app.put("/items/{item_id}", tags=["items"])
+async def update_item(item_id: str, item: Item):
+    try:
+        return service.update_item(item_id, item)
+    except ValueError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail="Item not found")
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.post("/items", tags=["items"])
 async def add_food_item(food_item: FoodItem, authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Not Authorized")
     
     token = authorization.replace("Bearer ", "").strip()
-    username = get_user_from_token(token)
+    username = get_username_from_token_string(token)
 
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
     try:
-        result = service.add_food_item(username, food_item)
+        result = service.add_user_food_item(username, food_item)
         return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid")
@@ -84,7 +94,7 @@ async def get_food_items(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Not Authorized")
 
     token = authorization.replace("Bearer ", "").strip()
-    username = get_user_from_token(token)
+    username = get_username_from_token_string(token)
 
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
