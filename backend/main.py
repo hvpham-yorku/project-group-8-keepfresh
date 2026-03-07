@@ -103,3 +103,25 @@ async def get_food_items(authorization: str = Header(None)):
         return {"status": "ok", "items": items}
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid")
+
+@app.delete("/items/{item_id}", tags=["items"])
+async def delete_food_item(item_id: str, authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+
+    token = authorization.replace("Bearer ", "").strip()
+    username = get_username_from_token_string(token)
+
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid user token")
+
+    try:
+        result = service.delete_user_food_item(username, item_id)
+        return result
+    except ValueError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail="Item not found")
+        if "invalid" in str(e).lower():
+            raise HTTPException(status_code=400, detail="Invalid item id")
+        raise HTTPException(status_code=400, detail=str(e))
+        

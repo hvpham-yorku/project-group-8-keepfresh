@@ -18,7 +18,7 @@ import {
 } from "@mui/material";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import CloseIcon from "@mui/icons-material/Close";
+import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import dayjs, { Dayjs } from "dayjs";
 
@@ -128,7 +128,17 @@ export default function UserHome() {
   };
 
   const handleDelete = (id: string) => {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+    const token = localStorage.getItem("user_token");
+    if (!token) return;
+    fetch(`http://localhost:8000/items/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Delete failed");
+        setItems((prev) => prev.filter((item) => item.id !== id));
+      })
+      .catch(() => setError("Failed to delete item"));
   };
 
   const handleOpenEdit = (item: Item) => {
@@ -268,11 +278,10 @@ export default function UserHome() {
                       <EditIcon />
                     </IconButton>
                     <IconButton
-                      edge="end"
                       aria-label={`Delete ${item.itemName}`}
                       onClick={() => handleDelete(item.id)}
                     >
-                      <CloseIcon />
+                      <DeleteIcon />
                     </IconButton>
                   </Box>
                 </Box>
