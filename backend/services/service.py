@@ -68,3 +68,18 @@ class Service:
             doc["id"] = str(doc.pop("_id", doc.get("id", "")))
             items.append(doc)
         return items
+
+    def delete_user_food_item(self, username: str, item_id: str):
+        if not ObjectId.is_valid(item_id):
+            raise ValueError("Invalid item id")
+
+        result = self.fridge_collection.delete_one({
+            "_id": ObjectId(item_id),
+            "username": username
+        })
+
+        if result.deleted_count == 0:
+            raise ValueError("Item not found")
+
+        return {"status": "ok", "message": "Item deleted successfully", "item_id": item_id}
+        
