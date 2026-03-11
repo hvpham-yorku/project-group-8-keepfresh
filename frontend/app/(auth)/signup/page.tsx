@@ -11,6 +11,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { API_BASE } from '@/lib/api';
 
 const MIN_LENGTH = 3;
 
@@ -32,7 +33,7 @@ export default function SignUp() {
       return;
     }
     try {
-      const api = await fetch('http://localhost:8000/signup', {
+      const api = await fetch(`${API_BASE}/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password }),
