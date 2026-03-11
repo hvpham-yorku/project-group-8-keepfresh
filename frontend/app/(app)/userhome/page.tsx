@@ -42,6 +42,68 @@ type Item = {
   expiryDate: string;
 };
 
+type ExpiryColor = "red" | "yellow" | "green";
+
+function getDaysUntilExpiry(expiryDate: string) {
+  const today = dayjs().startOf("day");
+  const expiry = dayjs(expiryDate).startOf("day");
+  return expiry.diff(today, "day");
+}
+
+function getExpiryCountdownText(expiryDate: string) {
+  const daysLeft = getDaysUntilExpiry(expiryDate);
+
+  if (daysLeft < 0) {
+    const daysAgo = Math.abs(daysLeft);
+    return `Expired ${daysAgo} day${daysAgo === 1 ? "" : "s"} ago`;
+  }
+
+  if (daysLeft === 0) {
+    return "Expires today";
+  }
+
+  if (daysLeft === 1) {
+    return "Expires tomorrow";
+  }
+
+  return `Expires in ${daysLeft} days`;
+}
+
+function getExpiryColor(expiryDate: string): ExpiryColor {
+  const daysLeft = getDaysUntilExpiry(expiryDate);
+
+  if (daysLeft <= 0) {
+    return "red";
+  }
+
+  if (daysLeft <= 3) {
+    return "yellow";
+  }
+
+  return "green";
+}
+
+function getExpiryLabelStyles(color: ExpiryColor) {
+  if (color === "red") {
+    return {
+      bg: "#fde2e2",
+      text: "#b91c1c",
+    };
+  }
+
+  if (color === "yellow") {
+    return {
+      bg: "#fef3c7",
+      text: "#92400e",
+    };
+  }
+
+  return {
+    bg: "#dcfce7",
+    text: "#166534",
+  };
+}
+
 function UserHomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -329,6 +391,9 @@ function UserHomeContent() {
     }).then((r) => r.json());
     setItems(data.items ?? []);
   };
+  const sortedItems = [...items].sort((a, b) => {
+    return dayjs(a.expiryDate).valueOf() - dayjs(b.expiryDate).valueOf();
+  });
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -392,38 +457,66 @@ function UserHomeContent() {
                 />
               }
             >
-              {items.map((item) => (
-                <Box
-                  key={item.id}
-                  sx={{
-                    py: 1.5,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <Box>
-                    <Typography fontWeight={500}>{item.itemName}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Expires {item.expiryDate}
-                    </Typography>
+              {sortedItems.map((item) => {
+                const expiryColor = getExpiryColor(item.expiryDate);
+                const expiryStyles = getExpiryLabelStyles(expiryColor);
+
+                return (
+                  <Box
+                    key={item.id}
+                    sx={{
+                      py: 1.5,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <Box>
+                      <Typography fontWeight={500}>{item.itemName}</Typography>
+
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                        <Typography variant="body2" color="text.secondary">
+                          {getExpiryCountdownText(item.expiryDate)}
+                        </Typography>
+
+                        <Box
+                          sx={{
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: "999px",
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            backgroundColor: expiryStyles.bg,
+                            color: expiryStyles.text,
+                          }}
+                        >
+                          {expiryColor === "red"
+                            ? "Expired"
+                            : expiryColor === "yellow"
+                            ? "Soon"
+                            : "Fresh"}
+                        </Box>
+                      </Stack>
+                    </Box>
+
+                    <Box>
+                      <IconButton
+                        aria-label={`Edit ${item.itemName}`}
+                        onClick={() => handleOpenEdit(item)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+
+                      <IconButton
+                        aria-label={`Delete ${item.itemName}`}
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
                   </Box>
-                  <Box>
-                    <IconButton
-                      aria-label={`Edit ${item.itemName}`}
-                      onClick={() => handleOpenEdit(item)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton
-                      aria-label={`Delete ${item.itemName}`}
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-              ))}
+                );
+              })}
             </Stack>
           )}
         </Paper>
