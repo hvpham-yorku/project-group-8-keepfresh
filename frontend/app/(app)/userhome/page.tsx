@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, useMemo, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
   Box,
@@ -20,12 +20,26 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import dayjs, { Dayjs } from "dayjs";
+import { QRCodeSVG } from "qrcode.react";
+import ReceiptProcessingOverlay from "@/components/ReceiptProcessingOverlay";
+import PendingItemsForm from "@/components/PendingItemsForm";
+import { useReceiptUpload } from "@/hooks/useReceiptUpload";
+import { API_BASE, APP_BASE } from "@/lib/api";
+import { buildBatchPayload, isMobileUpload } from "@/lib/receipt";
+
+function makeUploadSessionId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
 
 type Item = {
   id: string;
   itemName: string;
-  expiryDate: string; // YYYY-MM-DD format
+  expiryDate: string;
 };
 
 type ExpiryColor = "red" | "yellow" | "green";
@@ -90,8 +104,9 @@ function getExpiryLabelStyles(color: ExpiryColor) {
   };
 }
 
-export default function UserHome() {
+function UserHomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [username, setUsername] = useState<string>("");
   const [items, setItems] = useState<Item[]>([]);
@@ -103,6 +118,88 @@ export default function UserHome() {
   const [editItem, setEditItem] = useState<Item | null>(null);
   const [editName, setEditName] = useState("");
   const [editExpiry, setEditExpiry] = useState<Dayjs | null>(null);
+
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [showPendingList, setShowPendingList] = useState(false);
+  const [uploadSessionId, setUploadSessionId] = useState<string | null>(null);
+  const [waitingForPhoneResult, setWaitingForPhoneResult] = useState(false);
+
+  const {
+    pendingItems,
+    setPendingItems,
+    ocrProcessing,
+    error: receiptError,
+    setError: setReceiptError,
+    handleFileSelect: receiptHandleFileSelect,
+    handleUpdatePendingItem,
+    handleRemovePendingItem,
+  } = useReceiptUpload(true);
+
+  const handleFileSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const ok = await receiptHandleFileSelect(e);
+      if (ok) {
+        setShowPendingList(true);
+        setUploadModalOpen(false);
+      }
+    },
+    [receiptHandleFileSelect]
+  );
+
+  const baseUrl = typeof window !== "undefined" ? (APP_BASE || window.location.origin) : APP_BASE;
+  const uploadUrl = useMemo(
+    () => (uploadSessionId && baseUrl ? `${baseUrl}/upload?session=${uploadSessionId}` : ""),
+    [uploadSessionId, baseUrl]
+  );
+
+  useEffect(() => {
+    if (uploadModalOpen && !uploadSessionId) {
+      setUploadSessionId(makeUploadSessionId());
+    }
+    if (!uploadModalOpen) {
+      setUploadSessionId(null);
+      setWaitingForPhoneResult(false);
+    }
+  }, [uploadModalOpen, uploadSessionId]);
+
+  useEffect(() => {
+    if (!uploadSessionId || !uploadModalOpen) return;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/receipt/result/${uploadSessionId}`);
+        if (res.status === 202) {
+          setWaitingForPhoneResult(true);
+          return false;
+        }
+        if (res.status === 200) {
+          const data = await res.json();
+          const extracted = (data.items ?? []).map((x: { itemName: string }) => ({
+            itemName: x.itemName,
+            expiryDate: null as Dayjs | null,
+          }));
+          setPendingItems(extracted);
+          setShowPendingList(true);
+          setUploadModalOpen(false);
+          setUploadSessionId(null);
+          setWaitingForPhoneResult(false);
+          return true;
+        }
+      } catch {
+        // 404 or network - keep polling, no overlay
+      }
+      return false;
+    };
+    const interval = setInterval(async () => {
+      const done = await poll();
+      if (done) clearInterval(interval);
+    }, 3000);
+    poll();
+    return () => clearInterval(interval);
+  }, [uploadSessionId, uploadModalOpen]);
+
+  useEffect(() => {
+    if (searchParams.get("upload") === "1") setUploadModalOpen(true);
+  }, [searchParams]);
 
   useEffect(() => {
     const user_token = localStorage.getItem("user_token");
@@ -120,7 +217,7 @@ export default function UserHome() {
     const token = localStorage.getItem("user_token");
     if (!token) return;
     setItemsLoading(true);
-    fetch("http://localhost:8000/items", {
+    fetch(`${API_BASE}/items`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
@@ -164,7 +261,7 @@ export default function UserHome() {
       notes: "",
     };
 
-    fetch("http://localhost:8000/items", {
+    fetch(`${API_BASE}/items`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -192,7 +289,7 @@ export default function UserHome() {
   const handleDelete = (id: string) => {
     const token = localStorage.getItem("user_token");
     if (!token) return;
-    fetch(`http://localhost:8000/items/${id}`, {
+    fetch(`${API_BASE}/items/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -227,7 +324,7 @@ export default function UserHome() {
     setError("");
     const token = localStorage.getItem("user_token");
     if (!token) return;
-    fetch(`http://localhost:8000/items/${editItem.id}`, {
+    fetch(`${API_BASE}/items/${editItem.id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -260,11 +357,46 @@ export default function UserHome() {
     router.push("/login");
   };
 
+  const handleOpenUpload = () => {
+    setError("");
+    setReceiptError("");
+    setUploadModalOpen(true);
+  };
+
+  const handleCloseUpload = () => {
+    if (!ocrProcessing && !waitingForPhoneResult) setUploadModalOpen(false);
+  };
+
+  const handleSaveToFridge = async () => {
+    const invalid = pendingItems.some((p) => !p.itemName.trim() || !p.expiryDate);
+    if (invalid) {
+      setError("Fill in item name and expiry for all items");
+      return;
+    }
+    const token = localStorage.getItem("user_token");
+    if (!token) return;
+    setError("");
+    setReceiptError("");
+    const payload = buildBatchPayload(pendingItems);
+    const res = await fetch(`${API_BASE}/items/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("Save failed");
+    setPendingItems([]);
+    setShowPendingList(false);
+    const data = await fetch(`${API_BASE}/items`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((r) => r.json());
+    setItems(data.items ?? []);
+  };
   const sortedItems = [...items].sort((a, b) => {
-  return dayjs(a.expiryDate).valueOf() - dayjs(b.expiryDate).valueOf();
+    return dayjs(a.expiryDate).valueOf() - dayjs(b.expiryDate).valueOf();
   });
 
   return (
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
     <Container maxWidth="lg" sx={{ py: 6 }}>
       <Stack spacing={3}>
         <Stack
@@ -295,14 +427,19 @@ export default function UserHome() {
             <Typography variant="h6" fontWeight={600}>
               Your Fridge
             </Typography>
-            <Button variant="contained" onClick={handleOpenDialog}>
-              + Add Food
-            </Button>
+            <Stack direction="row" spacing={1}>
+              <Button variant="outlined" startIcon={<ReceiptLongIcon />} onClick={handleOpenUpload}>
+                Upload Receipt
+              </Button>
+              <Button variant="contained" onClick={handleOpenDialog}>
+                + Add Food
+              </Button>
+            </Stack>
           </Stack>
 
-          {error && (
+          {(error || receiptError) && (
             <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
+              {error || receiptError}
             </Alert>
           )}
 
@@ -383,10 +520,47 @@ export default function UserHome() {
             </Stack>
           )}
         </Paper>
+
+        {showPendingList && pendingItems.length > 0 && (
+          <PendingItemsForm
+            pendingItems={pendingItems}
+            onUpdate={handleUpdatePendingItem}
+            onRemove={handleRemovePendingItem}
+            onSave={handleSaveToFridge}
+          />
+        )}
       </Stack>
 
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <Dialog
+      <Dialog open={uploadModalOpen} onClose={handleCloseUpload} maxWidth="sm" fullWidth>
+        <DialogTitle>Upload Groceries Receipt</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} alignItems="center" py={2}>
+            <Typography variant="body2" color="text.secondary">
+              Scan with your phone to open camera, or upload an image below.
+            </Typography>
+            {uploadUrl && (
+              <Box sx={{ bgcolor: "white", p: 2, borderRadius: 2 }}>
+                <QRCodeSVG value={uploadUrl} size={180} level="M" />
+              </Box>
+            )}
+            <Button variant="outlined" component="label">
+              {isMobileUpload() ? "Take photo" : "Upload image"}
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                hidden
+                onChange={handleFileSelect}
+                disabled={ocrProcessing}
+              />
+            </Button>
+          </Stack>
+        </DialogContent>
+      </Dialog>
+
+      {(ocrProcessing || waitingForPhoneResult) && <ReceiptProcessingOverlay />}
+
+      <Dialog
           open={isDialogOpen}
           onClose={handleCloseDialog}
           fullWidth
@@ -442,7 +616,15 @@ export default function UserHome() {
             </Button>
           </DialogActions>
         </Dialog>
-      </LocalizationProvider>
     </Container>
+    </LocalizationProvider>
+  );
+}
+
+export default function UserHome() {
+  return (
+    <Suspense fallback={<Box sx={{ p: 4, textAlign: "center" }}>Loading…</Box>}>
+      <UserHomeContent />
+    </Suspense>
   );
 }

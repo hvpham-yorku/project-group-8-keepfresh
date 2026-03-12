@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
   Box,
@@ -11,14 +11,16 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { API_BASE } from "@/lib/api";
 
 const MIN_LENGTH = 3;
 
-export default function Login() {
+function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +34,7 @@ export default function Login() {
       return;
     }
     try {
-      const api = await fetch("http://localhost:8000/login", {
+      const api = await fetch(`${API_BASE}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password }),
@@ -41,7 +43,8 @@ export default function Login() {
         const data = await api.json();
         localStorage.setItem("user_token", data.user_token);
         if (data.username) localStorage.setItem("username", data.username);
-        router.push("/userhome");
+        const returnTo = searchParams.get("return") || "/userhome";
+        router.push(returnTo);
         return;
       }
       setError("Login failed");
@@ -108,5 +111,13 @@ export default function Login() {
         </Stack>
       </Paper>
     </Container>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={<Box sx={{ p: 4, textAlign: "center" }}>Loading…</Box>}>
+      <LoginForm />
+    </Suspense>
   );
 }
