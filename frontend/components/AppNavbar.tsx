@@ -12,6 +12,9 @@ export default function AppNavbar() {
           <Button component={Link} href="/userhome" color="inherit">
             Fridge
           </Button>
+          <Button component={Link} href="/recommendations" color="inherit">
+            Recommendations
+          </Button>
           <Button component={Link} href="/profile" color="inherit">
             Profile
           </Button>

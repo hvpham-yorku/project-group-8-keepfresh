@@ -226,6 +226,12 @@ function UserHomeContent() {
       .finally(() => setItemsLoading(false));
   }, []);
 
+  useEffect(() => {
+    const token = localStorage.getItem("user_token");
+    if (!token) return;
+    fetch(`${API_BASE}/recommendations`, { headers: { Authorization: `Bearer ${token}` } });
+  }, []);
+
   const handleOpenDialog = () => {
     setNewItemName("");
     setNewItemExpiry(null);
