@@ -4,6 +4,12 @@ from models.user import User
 from models.item import Item
 from models.food import FoodItem
 
+
+def _get_recommendations_llm(item_names):
+    from recommendation_llm import get_recommendations
+    return get_recommendations(item_names)
+
+
 class Service:
     def __init__(self):
         self.client = MongoClient("mongodb://mongodb:27017")  
@@ -12,6 +18,7 @@ class Service:
         self.items_collection = self.db["items"]
         self.fridge_collection = self.db["fridge"]
         self.receipt_sessions_collection = self.db["receipt_sessions"]
+        self.recommendations_collection = self.db["recommendations"]
 
     def user_exists_by_username(self, username: str) -> bool:
         return self.users_collection.find_one({"username": username}) is not None
@@ -116,3 +123,53 @@ class Service:
 
     def delete_receipt_session(self, session_id: str) -> None:
         self.receipt_sessions_collection.delete_one({"_id": session_id})
+
+    def get_user_recommendations(self, username: str) -> dict | None:
+        """Return stored recommendations for user, or None if never computed."""
+        doc = self.recommendations_collection.find_one({"username": username})
+        if not doc:
+            return None
+        return {
+            "boughtBefore": doc.get("boughtBefore", []),
+            "healthierAlternatives": doc.get("healthierAlternatives", []),
+            "cheaperAlternatives": doc.get("cheaperAlternatives", []),
+            "buyBecauseYouBought": doc.get("buyBecauseYouBought", []),
+        }
+
+    def set_user_recommendations(self, username: str, recs: dict, item_names_snapshot: list[str] | None = None) -> None:
+        payload = {"username": username, **recs}
+        if item_names_snapshot is not None:
+            payload["itemNamesSnapshot"] = sorted(n for n in item_names_snapshot if n)
+        self.recommendations_collection.update_one(
+            {"username": username},
+            {"$set": payload},
+            upsert=True,
+        )
+
+    def refresh_recommendations(self, username: str) -> dict:
+        """Load user's fridge items, call LLM, store and return recommendations."""
+        items = self.get_user_food_items(username)
+        names = [doc.get("itemName") or "" for doc in items if doc.get("itemName")]
+        item_names = sorted(dict.fromkeys(n for n in names if n))
+        recs = _get_recommendations_llm(item_names)
+        self.set_user_recommendations(username, recs, item_names_snapshot=item_names)
+        return recs
+
+    def get_recommendations_or_refresh(self, username: str) -> dict | None:
+        """Return cached recommendations if fridge items match snapshot; else run LLM and return."""
+        items = self.get_user_food_items(username)
+        names = [doc.get("itemName") or "" for doc in items if doc.get("itemName")]
+        current_names = sorted(dict.fromkeys(n for n in names if n))
+        doc = self.recommendations_collection.find_one({"username": username})
+        stored_snapshot = doc.get("itemNamesSnapshot") if doc else None
+        if stored_snapshot is not None and stored_snapshot == current_names:
+            return {
+                "boughtBefore": doc.get("boughtBefore", []),
+                "healthierAlternatives": doc.get("healthierAlternatives", []),
+                "cheaperAlternatives": doc.get("cheaperAlternatives", []),
+                "buyBecauseYouBought": doc.get("buyBecauseYouBought", []),
+            }
+        try:
+            return self.refresh_recommendations(username)
+        except Exception:
+            return self.get_user_recommendations(username)

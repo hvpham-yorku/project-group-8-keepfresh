@@ -32,6 +32,10 @@ app = FastAPI(
             "name": "receipt",
             "description": "Receipt OCR for grocery extraction",
         },
+        {
+            "name": "recommendations",
+            "description": "Grocery recommendations per user",
+        },
     ],
 )
 
@@ -144,11 +148,10 @@ async def add_food_item(food_item: FoodItem, authorization: str = Header(None)):
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
     try:
-        result = service.add_user_food_item(username, food_item)
-        return result
+        return service.add_user_food_item(username, food_item)
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid")
-    
+
 @app.get("/items", tags=["items"])
 async def get_food_items(authorization: str = Header(None)):
     if not authorization:
@@ -185,4 +188,32 @@ async def delete_food_item(item_id: str, authorization: str = Header(None)):
         if "invalid" in str(e).lower():
             raise HTTPException(status_code=400, detail="Invalid item id")
         raise HTTPException(status_code=400, detail=str(e))
-        
+
+
+@app.get("/recommendations", tags=["recommendations"])
+async def get_recommendations(authorization: str = Header(None)):
+    """Return recommendations: use cached if fridge items unchanged, else run LLM and return."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+    token = authorization.replace("Bearer ", "").strip()
+    username = get_username_from_token_string(token)
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid user token")
+    recs = service.get_recommendations_or_refresh(username)
+    return {"status": "ok", "recommendations": recs}
+
+
+@app.post("/recommendations/refresh", tags=["recommendations"])
+async def refresh_recommendations(authorization: str = Header(None)):
+    """Recompute recommendations from current fridge items and store them."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+    token = authorization.replace("Bearer ", "").strip()
+    username = get_username_from_token_string(token)
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid user token")
+    try:
+        recs = service.refresh_recommendations(username)
+        return {"status": "ok", "recommendations": recs}
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
