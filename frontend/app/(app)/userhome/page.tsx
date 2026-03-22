@@ -401,6 +401,12 @@ function UserHomeContent() {
     return dayjs(a.expiryDate).valueOf() - dayjs(b.expiryDate).valueOf();
   });
 
+  const [search, setSearch] = useState("");
+
+  const filteredItems = sortedItems.filter((item) =>
+  item.itemName.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
     <Container maxWidth="lg" sx={{ py: 6 }}>
@@ -443,6 +449,16 @@ function UserHomeContent() {
             </Stack>
           </Stack>
 
+          <TextField
+            label="Search your fridge"
+            variant="outlined"
+            size="small"
+            fullWidth
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+
           {(error || receiptError) && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {error || receiptError}
@@ -463,7 +479,7 @@ function UserHomeContent() {
                 />
               }
             >
-              {sortedItems.map((item) => {
+              {filteredItems.map((item) => {
                 const expiryColor = getExpiryColor(item.expiryDate);
                 const expiryStyles = getExpiryLabelStyles(expiryColor);
 
