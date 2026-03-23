@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from models.user import User
@@ -16,6 +18,31 @@ class FakeCollection:
 
     def insert_one(self, doc):
         self._docs.append(doc)
+
+
+class FakeAccessTokensCollection:
+    def __init__(self):
+        self._docs = []
+
+    def create_index(self, *args, **kwargs):
+        return None
+
+    def insert_one(self, doc):
+        self._docs.append(dict(doc))
+
+    def find_one(self, query):
+        for doc in self._docs:
+            if all(doc.get(k) == v for k, v in query.items()):
+                return doc
+        return None
+
+    def update_one(self, query, update):
+        for doc in self._docs:
+            if all(doc.get(k) == v for k, v in query.items()):
+                if "$set" in update:
+                    doc.update(update["$set"])
+                return type("Result", (), {"modified_count": 1})()
+        return type("Result", (), {"modified_count": 0})()
 
 
 def _make_service_with_fake_collection():
@@ -61,4 +88,34 @@ def test_find_user_returns_matching_user():
     found = service.find_user(user)
 
     assert found == doc
+
+
+def _service_with_access_tokens():
+    service = Service.__new__(Service)
+    service.access_tokens_collection = FakeAccessTokensCollection()
+    return service
+
+
+def test_create_and_validate_access_token():
+    service = _service_with_access_tokens()
+    exp = datetime.now(timezone.utc) + timedelta(hours=1)
+    service.create_access_token("jti-1", "alice", exp)
+    assert service.is_access_token_valid("jti-1", "alice") is True
+    assert service.is_access_token_valid("jti-1", "bob") is False
+    assert service.is_access_token_valid("missing", "alice") is False
+
+
+def test_access_token_expired():
+    service = _service_with_access_tokens()
+    exp = datetime.now(timezone.utc) - timedelta(minutes=1)
+    service.create_access_token("jti-exp", "alice", exp)
+    assert service.is_access_token_valid("jti-exp", "alice") is False
+
+
+def test_revoke_access_token():
+    service = _service_with_access_tokens()
+    exp = datetime.now(timezone.utc) + timedelta(hours=1)
+    service.create_access_token("jti-r", "alice", exp)
+    assert service.revoke_access_token("jti-r", "alice") is True
+    assert service.is_access_token_valid("jti-r", "alice") is False
 
