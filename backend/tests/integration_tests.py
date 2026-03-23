@@ -60,6 +60,8 @@ class TestIntegration:
         }
         response = self.client.post("/items", json=payload, headers={"Authorization": userToken})
         assert response.status_code == 200
+        check_user = self.db["users"].find_one({"username": "testing"})
+
 
     def test_GettingFoodItems_API_call(self):
         payload = {"username": "testing", "password" : "testing123"}
