@@ -1,5 +1,13 @@
+import os
+
 import jwt
 from datetime import datetime, timedelta, timezone
+
+# HS256 expects a strong secret; override in production via JWT_SECRET.
+JWT_SECRET = os.environ.get(
+    "JWT_SECRET",
+    "dev-keepfresh-jwt-secret-change-me-32chars-min",
+)
 
 
 def encode_token(username: str, jti: str, exp: datetime | None = None):
@@ -10,11 +18,11 @@ def encode_token(username: str, jti: str, exp: datetime | None = None):
         "exp": exp,
         "jti": jti,
     }
-    return jwt.encode(payload, "key", algorithm="HS256")
+    return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
 
 def decode_token(token: str):
-    return jwt.decode(token, "key", algorithms=["HS256"])
+    return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
 
 
 def get_username_from_token_string(token: str, service):

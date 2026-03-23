@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import jwt
 
-from config.auth import encode_token, decode_token, get_username_from_token_string
+from config.auth import JWT_SECRET, encode_token, decode_token, get_username_from_token_string
 
 
 def test_encode_and_decode_token_roundtrip():
@@ -43,7 +43,7 @@ def test_get_username_without_jti_in_payload_rejected():
             "sub": "u",
             "exp": datetime.now(timezone.utc) + timedelta(hours=1),
         },
-        "key",
+        JWT_SECRET,
         algorithm="HS256",
     )
     assert get_username_from_token_string(token, mock) is None
