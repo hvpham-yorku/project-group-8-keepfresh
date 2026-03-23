@@ -1,8 +1,20 @@
+from datetime import datetime, timezone
+
 from pymongo import MongoClient
 from bson import ObjectId
 from models.user import User
 from models.item import Item
 from models.food import FoodItem
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _as_utc_aware(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _get_recommendations_llm(item_names):
@@ -19,6 +31,39 @@ class Service:
         self.fridge_collection = self.db["fridge"]
         self.receipt_sessions_collection = self.db["receipt_sessions"]
         self.recommendations_collection = self.db["recommendations"]
+        self.access_tokens_collection = self.db["access_tokens"]
+        self.access_tokens_collection.create_index("jti", unique=True)
+
+    def create_access_token(self, jti: str, username: str, expires_at: datetime) -> None:
+        self.access_tokens_collection.insert_one(
+            {
+                "jti": jti,
+                "username": username,
+                "expires_at": expires_at,
+                "revoked": False,
+                "created_at": _utc_now(),
+            }
+        )
+
+    def is_access_token_valid(self, jti: str, username: str) -> bool:
+        doc = self.access_tokens_collection.find_one({"jti": jti})
+        if not doc:
+            return False
+        if doc.get("username") != username:
+            return False
+        if doc.get("revoked"):
+            return False
+        exp = doc.get("expires_at")
+        if exp is not None and _utc_now() > _as_utc_aware(exp):
+            return False
+        return True
+
+    def revoke_access_token(self, jti: str, username: str) -> bool:
+        result = self.access_tokens_collection.update_one(
+            {"jti": jti, "username": username},
+            {"$set": {"revoked": True}},
+        )
+        return result.modified_count > 0
 
     def user_exists_by_username(self, username: str) -> bool:
         return self.users_collection.find_one({"username": username}) is not None
