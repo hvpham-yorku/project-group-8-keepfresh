@@ -357,12 +357,6 @@ function UserHomeContent() {
       .catch(() => setError("Failed to update item"));
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("username");
-    localStorage.removeItem("user_token");
-    router.push("/login");
-  };
-
   const handleOpenUpload = () => {
     setError("");
     setReceiptError("");
@@ -411,23 +405,14 @@ function UserHomeContent() {
     <LocalizationProvider dateAdapter={AdapterDayjs}>
     <Container maxWidth="lg" sx={{ py: 6 }}>
       <Stack spacing={3}>
-        <Stack
-          direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-        >
-          <Box>
-            <Typography variant="h4" fontWeight={700}>
-              Welcome back, {username || "friend"}!
-            </Typography>
-            <Typography color="text.secondary">
-              Here’s your current fridge.
-            </Typography>
-          </Box>
-          <Button variant="outlined" color="inherit" onClick={handleLogout}>
-            Logout
-          </Button>
-        </Stack>
+        <Box>
+          <Typography variant="h4" fontWeight={700}>
+            Welcome back, {username || "friend"}!
+          </Typography>
+          <Typography color="text.secondary">
+            Here’s your current fridge.
+          </Typography>
+        </Box>
 
         <Paper elevation={3} sx={{ p: 3 }}>
           <Stack
