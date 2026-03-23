@@ -1,31 +1,34 @@
 import jwt
-from datetime import datetime, timedelta
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import Depends, HTTPException
+from datetime import datetime, timedelta, timezone
 
-def encode_token(username: str):
+
+def encode_token(username: str, jti: str, exp: datetime | None = None):
+    if exp is None:
+        exp = datetime.now(timezone.utc) + timedelta(minutes=30)
     payload = {
         "sub": username,
-        "exp": datetime.utcnow() + timedelta(minutes=30),
+        "exp": exp,
+        "jti": jti,
     }
     return jwt.encode(payload, "key", algorithm="HS256")
+
 
 def decode_token(token: str):
     return jwt.decode(token, "key", algorithms=["HS256"])
 
-def get_username_from_token_string(token: str):
-    """Parse raw Bearer token string; returns username or None if invalid."""
+
+def get_username_from_token_string(token: str, service):
+    """Parse Bearer token; require ``jti`` and a valid ``access_tokens`` row."""
+    if service is None:
+        return None
     try:
         payload = decode_token(token)
-        return payload.get("sub")
     except Exception:
         return None
-
-myBearer = HTTPBearer()
-
-def get_user_from_token(credentials: HTTPAuthorizationCredentials = Depends(myBearer)):
-    try:
-        payload = decode_token(credentials.credentials)
-        return payload["sub"]
-    except:
-        raise HTTPException(status_code=401, detail="Token Not Allowed")
+    username = payload.get("sub")
+    jti = payload.get("jti")
+    if not username or not jti:
+        return None
+    if not service.is_access_token_valid(jti, username):
+        return None
+    return username
