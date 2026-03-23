@@ -1,10 +1,13 @@
 import os
+import uuid
+from datetime import datetime, timedelta, timezone
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Header
 from services.service import Service
 from fastapi.middleware.cors import CORSMiddleware
 from models.user import User
 from models.item import Item
-from config.auth import encode_token, decode_token, get_user_from_token, get_username_from_token_string
+from config.auth import encode_token, decode_token, get_username_from_token_string
 from models.food import FoodItem
 from receipt_ocr import extract_grocery_items
 
@@ -35,6 +38,10 @@ app = FastAPI(
         {
             "name": "recommendations",
             "description": "Grocery recommendations per user",
+        },
+        {
+            "name": "auth",
+            "description": "Login and session management",
         },
     ],
 )
@@ -73,14 +80,34 @@ async def signup(user: User):
             raise HTTPException(status_code=409, detail="Username already taken")
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/login")
+@app.post("/login", tags=["auth"])
 async def login(user: User):
     check = service.find_user(user)
     if check:
-        token = encode_token(user.username)
+        jti = str(uuid.uuid4())
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+        service.create_access_token(jti, user.username, expires_at)
+        token = encode_token(user.username, jti=jti, exp=expires_at)
         return {"status": "ok", "user_token": token, "username": user.username}
     else:
         raise HTTPException(status_code=401, detail="Invalid")
+
+
+@app.post("/logout", tags=["auth"])
+async def logout(authorization: str = Header(None)):
+    """Invalidate server-side session when JWT includes ``jti``; always safe for clients to call."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+    token = authorization.replace("Bearer ", "").strip()
+    try:
+        payload = decode_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="invalid user token")
+    jti = payload.get("jti")
+    username = payload.get("sub")
+    if jti and username:
+        service.revoke_access_token(jti, username)
+    return {"status": "ok"}
 
 @app.put("/items/{item_id}", tags=["items"])
 async def update_item(item_id: str, item: Item):
@@ -128,7 +155,7 @@ async def add_food_items_batch(items: list[FoodItem], authorization: str = Heade
     if not authorization:
         raise HTTPException(status_code=401, detail="Not Authorized")
     token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token)
+    username = get_username_from_token_string(token, service)
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
     try:
@@ -143,7 +170,7 @@ async def add_food_item(food_item: FoodItem, authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Not Authorized")
     
     token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token)
+    username = get_username_from_token_string(token, service)
 
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
@@ -158,7 +185,7 @@ async def get_food_items(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Not Authorized")
 
     token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token)
+    username = get_username_from_token_string(token, service)
 
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
@@ -174,7 +201,7 @@ async def delete_food_item(item_id: str, authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Not Authorized")
 
     token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token)
+    username = get_username_from_token_string(token, service)
 
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
@@ -196,7 +223,7 @@ async def get_recommendations(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Not Authorized")
     token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token)
+    username = get_username_from_token_string(token, service)
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
     recs = service.get_recommendations_or_refresh(username)
@@ -209,7 +236,7 @@ async def refresh_recommendations(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Not Authorized")
     token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token)
+    username = get_username_from_token_string(token, service)
     if not username:
         raise HTTPException(status_code=401, detail="invalid user token")
     try:
