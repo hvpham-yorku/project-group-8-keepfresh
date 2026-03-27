@@ -85,30 +85,29 @@ class Service:
         })
         return user
 
-    def update_item(self, item_id: str, item: Item):
-        """Update a fridge item by _id (itemName, expiryDate)."""
+    def update_item(self, item_id: str, item: Item, username: str):
+        """Update a fridge item owned by ``username`` (by ``_id``)."""
+        if not ObjectId.is_valid(item_id):
+            raise ValueError("Invalid item id")
+        owner_filter = {"_id": ObjectId(item_id), "username": username}
         update = {}
-        try:
-            oid = ObjectId(item_id)
-        except Exception:
-            raise ValueError("Invalid Item")
         if item.name is not None:
             update["itemName"] = item.name
         if item.expiry_date is not None:
             update["expiryDate"] = item.expiry_date
         if not update:
-            doc = self.fridge_collection.find_one({"_id": oid})
+            doc = self.fridge_collection.find_one(owner_filter)
             if not doc:
                 raise ValueError("Item not found")
             doc["id"] = str(doc.pop("_id"))
             return doc
         result = self.fridge_collection.update_one(
-            {"_id": oid},
-            {"$set": update}
+            owner_filter,
+            {"$set": update},
         )
         if result.matched_count == 0:
             raise ValueError("Item not found")
-        doc = self.fridge_collection.find_one({"_id": oid})
+        doc = self.fridge_collection.find_one(owner_filter)
         if not doc:
             raise ValueError("Item not found")
         doc["id"] = str(doc.pop("_id"))
