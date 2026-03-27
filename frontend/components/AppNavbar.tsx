@@ -1,7 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import { AppBar, Button, Stack, Toolbar, Typography } from "@mui/material";
 
 export default function AppNavbar() {
+  const handleLogoutClick = () => {
+    localStorage.removeItem("user_token");
+    localStorage.removeItem("username");
+  };
+
   return (
     <AppBar position="static" color="primary" sx={{ bgcolor: "#2563eb" }}>
       <Toolbar sx={{ justifyContent: "space-between" }}>
@@ -23,6 +30,7 @@ export default function AppNavbar() {
             href="/login"
             variant="outlined"
             color="inherit"
+            onClick={handleLogoutClick}
           >
             Logout
           </Button>
