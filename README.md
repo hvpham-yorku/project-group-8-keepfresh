@@ -11,6 +11,9 @@ Grocery Receipt ingestion flow
 
 <img width="456" height="928" alt="image" src="https://github.com/user-attachments/assets/d0ea0614-7df8-449c-b219-703e6b09e3e5" />
 
+High-level Flow
+
+<img width="704" height="200" alt="image" src="https://github.com/user-attachments/assets/e3727470-2351-4025-81e0-7fe45bfdd86b" />
 
 ## Quick Start
 
