@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import bcrypt
 from pymongo import MongoClient
 from bson import ObjectId
 from models.user import User
@@ -20,6 +21,17 @@ def _as_utc_aware(dt: datetime) -> datetime:
 def _get_recommendations_llm(item_names):
     from recommendation_llm import get_recommendations
     return get_recommendations(item_names)
+
+
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_password(password: str, stored_password: str) -> bool:
+    if stored_password.startswith("$2"):
+        return bcrypt.checkpw(password.encode("utf-8"), stored_password.encode("utf-8"))
+    # Backward compatibility for existing plaintext test/dev records.
+    return password == stored_password
 
 
 class Service:
@@ -73,17 +85,19 @@ class Service:
             raise ValueError("Username already taken")
         user_dict = {
             "username": user.username,
-            "password": user.password,
+            "password": _hash_password(user.password),
             "food_items": []
         }
         self.users_collection.insert_one(user_dict)
 
     def find_user(self, user: User):
-        user = self.users_collection.find_one({
-            "username" : user.username,
-            "password" : user.password
-        })
-        return user
+        found_user = self.users_collection.find_one({"username": user.username})
+        if not found_user:
+            return None
+        stored_password = found_user.get("password", "")
+        if _verify_password(user.password, stored_password):
+            return found_user
+        return None
 
     def update_item(self, item_id: str, item: Item, username: str):
         """Update a fridge item owned by ``username`` (by ``_id``)."""
