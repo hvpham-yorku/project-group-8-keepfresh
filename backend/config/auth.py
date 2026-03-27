@@ -1,7 +1,15 @@
+"""JWT helpers and Bearer-token authentication for the KeepFresh API.
+
+Tokens embed a ``jti`` claim; ``Service.is_access_token_valid`` checks the
+``access_tokens`` collection so sessions can be revoked server-side (logout).
+"""
+
 import os
 
 import jwt
 from datetime import datetime, timedelta, timezone
+
+from fastapi import HTTPException
 
 # HS256 expects a strong secret; override in production via JWT_SECRET.
 JWT_SECRET = os.environ.get(
@@ -39,4 +47,19 @@ def get_username_from_token_string(token: str, service):
         return None
     if not service.is_access_token_valid(jti, username):
         return None
+    return username
+
+
+def require_authenticated_user(authorization: str | None, service) -> str:
+    """Validate ``Authorization: Bearer <jwt>`` and return the authenticated username.
+
+    Raises ``HTTPException`` 401 if the header is missing or the token is invalid/revoked.
+    Centralizes the same checks used across protected routes.
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+    token = authorization.replace("Bearer ", "").strip()
+    username = get_username_from_token_string(token, service)
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid user token")
     return username
