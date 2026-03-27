@@ -88,23 +88,27 @@ class Service:
     def update_item(self, item_id: str, item: Item):
         """Update a fridge item by _id (itemName, expiryDate)."""
         update = {}
+        try:
+            oid = ObjectId(item_id)
+        except Exception:
+            raise ValueError("Invalid Item")
         if item.name is not None:
             update["itemName"] = item.name
         if item.expiry_date is not None:
             update["expiryDate"] = item.expiry_date
         if not update:
-            doc = self.fridge_collection.find_one({"_id": ObjectId(item_id)})
+            doc = self.fridge_collection.find_one({"_id": oid})
             if not doc:
                 raise ValueError("Item not found")
             doc["id"] = str(doc.pop("_id"))
             return doc
         result = self.fridge_collection.update_one(
-            {"_id": ObjectId(item_id)},
+            {"_id": oid},
             {"$set": update}
         )
         if result.matched_count == 0:
             raise ValueError("Item not found")
-        doc = self.fridge_collection.find_one({"_id": ObjectId(item_id)})
+        doc = self.fridge_collection.find_one({"_id": oid})
         doc["id"] = str(doc.pop("_id"))
         return doc
 
