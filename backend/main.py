@@ -105,6 +105,8 @@ async def logout(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="invalid user token")
     jti = payload.get("jti")
     username = payload.get("sub")
+    if not jiti or not username:
+        raise HTTPException(status_code=401, detail="Token missing information")
     if jti and username:
         service.revoke_access_token(jti, username)
     return {"status": "ok"}
