@@ -1,3 +1,5 @@
+# FastAPI: signup/receipt public; login/logout + Bearer on items and recommendations.
+
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -7,7 +9,7 @@ from services.service import Service
 from fastapi.middleware.cors import CORSMiddleware
 from models.user import User
 from models.item import Item
-from config.auth import encode_token, decode_token, get_username_from_token_string
+from config.auth import encode_token, decode_token, require_authenticated_user
 from models.food import FoodItem
 from receipt_ocr import extract_grocery_items
 
@@ -82,6 +84,7 @@ async def signup(user: User):
 
 @app.post("/login", tags=["auth"])
 async def login(user: User):
+    # Create jti row in access_tokens and return JWT (logout revokes that row).
     check = service.find_user(user)
     if check:
         jti = str(uuid.uuid4())
@@ -105,16 +108,22 @@ async def logout(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="invalid user token")
     jti = payload.get("jti")
     username = payload.get("sub")
-    if not jiti or not username:
+    if not jti or not username:
         raise HTTPException(status_code=401, detail="Token missing information")
     if jti and username:
         service.revoke_access_token(jti, username)
     return {"status": "ok"}
 
+# PUT updates only if fridge document username matches token user.
 @app.put("/items/{item_id}", tags=["items"])
-async def update_item(item_id: str, item: Item):
+async def update_item(
+    item_id: str,
+    item: Item,
+    authorization: str = Header(None),
+):
+    username = require_authenticated_user(authorization, service)
     try:
-        return service.update_item(item_id, item)
+        return service.update_item(item_id, item, username)
     except ValueError as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=404, detail="Item not found")
@@ -152,14 +161,10 @@ async def receipt_result(session_id: str):
     return {"status": "ok", "items": rec.get("items", [])}
 
 
+# Fridge CRUD below: all require Authorization Bearer.
 @app.post("/items/batch", tags=["items"])
 async def add_food_items_batch(items: list[FoodItem], authorization: str = Header(None)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not Authorized")
-    token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token, service)
-    if not username:
-        raise HTTPException(status_code=401, detail="invalid user token")
+    username = require_authenticated_user(authorization, service)
     try:
         return service.add_user_food_items_batch(username, items)
     except ValueError as e:
@@ -168,14 +173,7 @@ async def add_food_items_batch(items: list[FoodItem], authorization: str = Heade
 
 @app.post("/items", tags=["items"])
 async def add_food_item(food_item: FoodItem, authorization: str = Header(None)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not Authorized")
-    
-    token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token, service)
-
-    if not username:
-        raise HTTPException(status_code=401, detail="invalid user token")
+    username = require_authenticated_user(authorization, service)
     try:
         return service.add_user_food_item(username, food_item)
     except ValueError as e:
@@ -183,14 +181,7 @@ async def add_food_item(food_item: FoodItem, authorization: str = Header(None)):
 
 @app.get("/items", tags=["items"])
 async def get_food_items(authorization: str = Header(None)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not Authorized")
-
-    token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token, service)
-
-    if not username:
-        raise HTTPException(status_code=401, detail="invalid user token")
+    username = require_authenticated_user(authorization, service)
     try:
         items = service.get_user_food_items(username)
         return {"status": "ok", "items": items}
@@ -199,14 +190,7 @@ async def get_food_items(authorization: str = Header(None)):
 
 @app.delete("/items/{item_id}", tags=["items"])
 async def delete_food_item(item_id: str, authorization: str = Header(None)):
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not Authorized")
-
-    token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token, service)
-
-    if not username:
-        raise HTTPException(status_code=401, detail="invalid user token")
+    username = require_authenticated_user(authorization, service)
 
     try:
         result = service.delete_user_food_item(username, item_id)
@@ -219,15 +203,11 @@ async def delete_food_item(item_id: str, authorization: str = Header(None)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# Recommendations: same Bearer guard as /items.
 @app.get("/recommendations", tags=["recommendations"])
 async def get_recommendations(authorization: str = Header(None)):
     """Return recommendations: use cached if fridge items unchanged, else run LLM and return."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not Authorized")
-    token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token, service)
-    if not username:
-        raise HTTPException(status_code=401, detail="invalid user token")
+    username = require_authenticated_user(authorization, service)
     recs = service.get_recommendations_or_refresh(username)
     return {"status": "ok", "recommendations": recs}
 
@@ -235,12 +215,7 @@ async def get_recommendations(authorization: str = Header(None)):
 @app.post("/recommendations/refresh", tags=["recommendations"])
 async def refresh_recommendations(authorization: str = Header(None)):
     """Recompute recommendations from current fridge items and store them."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not Authorized")
-    token = authorization.replace("Bearer ", "").strip()
-    username = get_username_from_token_string(token, service)
-    if not username:
-        raise HTTPException(status_code=401, detail="invalid user token")
+    username = require_authenticated_user(authorization, service)
     try:
         recs = service.refresh_recommendations(username)
         return {"status": "ok", "recommendations": recs}

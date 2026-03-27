@@ -3,7 +3,10 @@ from unittest.mock import MagicMock
 
 import jwt
 
-from config.auth import JWT_SECRET, encode_token, decode_token, get_username_from_token_string
+from fastapi import HTTPException
+import pytest
+
+from config.auth import JWT_SECRET, encode_token, decode_token, get_username_from_token_string, require_authenticated_user
 
 
 def test_encode_and_decode_token_roundtrip():
@@ -48,3 +51,17 @@ def test_get_username_without_jti_in_payload_rejected():
     )
     assert get_username_from_token_string(token, mock) is None
     mock.is_access_token_valid.assert_not_called()
+
+
+def test_require_authenticated_user_returns_username():
+    mock = MagicMock()
+    mock.is_access_token_valid.return_value = True
+    token = encode_token("alice", jti="jid-ok")
+    assert require_authenticated_user(f"Bearer {token}", mock) == "alice"
+
+
+def test_require_authenticated_user_raises_without_header():
+    mock = MagicMock()
+    with pytest.raises(HTTPException) as exc:
+        require_authenticated_user(None, mock)
+    assert exc.value.status_code == 401

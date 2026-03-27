@@ -293,6 +293,13 @@ function UserHomeContent() {
   };
 
   const handleDelete = (id: string) => {
+    // Confirm before DELETE /items/:id with Bearer token.
+    const itemToDelete = items.find((item) => item.id === id);
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${itemToDelete?.itemName ?? "this item"}?`
+    );
+    if (!confirmed) return;
+
     const token = localStorage.getItem("user_token");
     if (!token) return;
     fetch(`${API_BASE}/items/${id}`, {
@@ -318,6 +325,7 @@ function UserHomeContent() {
   };
 
   const handleSaveEdit = () => {
+    // PUT /items/:id requires Bearer; server checks item belongs to this user.
     if (!editItem) return;
     if (!editName.trim()) {
       setError("Food name is required");
@@ -334,6 +342,7 @@ function UserHomeContent() {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         name: editName.trim(),

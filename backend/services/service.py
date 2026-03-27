@@ -1,5 +1,8 @@
+# MongoDB-backed service: access_tokens for JWT sessions, bcrypt passwords for users.
+
 from datetime import datetime, timezone
 
+import bcrypt
 from pymongo import MongoClient
 from bson import ObjectId
 from models.user import User
@@ -22,6 +25,18 @@ def _get_recommendations_llm(item_names):
     return get_recommendations(item_names)
 
 
+def _hash_password(password: str) -> str:
+    # bcrypt hash for new signups; stored as a string on the user document.
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def _verify_password(password: str, stored_password: str) -> bool:
+    # Accept bcrypt hashes; fall back to plaintext compare for legacy DB rows only.
+    if stored_password.startswith("$2"):
+        return bcrypt.checkpw(password.encode("utf-8"), stored_password.encode("utf-8"))
+    return password == stored_password
+
+
 class Service:
     def __init__(self):
         self.client = MongoClient("mongodb://mongodb:27017")  
@@ -31,6 +46,7 @@ class Service:
         self.fridge_collection = self.db["fridge"]
         self.receipt_sessions_collection = self.db["receipt_sessions"]
         self.recommendations_collection = self.db["recommendations"]
+        # One row per login JWT (jti); logout revokes so API rejects reuse.
         self.access_tokens_collection = self.db["access_tokens"]
         self.access_tokens_collection.create_index("jti", unique=True)
 
@@ -69,46 +85,49 @@ class Service:
         return self.users_collection.find_one({"username": username}) is not None
 
     def create_user(self, user: User):
+        # Store bcrypt hash only (never plaintext).
         if self.user_exists_by_username(user.username):
             raise ValueError("Username already taken")
         user_dict = {
             "username": user.username,
-            "password": user.password,
+            "password": _hash_password(user.password),
             "food_items": []
         }
         self.users_collection.insert_one(user_dict)
 
     def find_user(self, user: User):
-        user = self.users_collection.find_one({
-            "username" : user.username,
-            "password" : user.password
-        })
-        return user
+        # Login: verify password against bcrypt or legacy plaintext row.
+        found_user = self.users_collection.find_one({"username": user.username})
+        if not found_user:
+            return None
+        stored_password = found_user.get("password", "")
+        if _verify_password(user.password, stored_password):
+            return found_user
+        return None
 
-    def update_item(self, item_id: str, item: Item):
-        """Update a fridge item by _id (itemName, expiryDate)."""
+    def update_item(self, item_id: str, item: Item, username: str):
+        # Only update rows where fridge.username matches the authenticated user.
+        if not ObjectId.is_valid(item_id):
+            raise ValueError("Invalid item id")
+        owner_filter = {"_id": ObjectId(item_id), "username": username}
         update = {}
-        try:
-            oid = ObjectId(item_id)
-        except Exception:
-            raise ValueError("Invalid Item")
         if item.name is not None:
             update["itemName"] = item.name
         if item.expiry_date is not None:
             update["expiryDate"] = item.expiry_date
         if not update:
-            doc = self.fridge_collection.find_one({"_id": oid})
+            doc = self.fridge_collection.find_one(owner_filter)
             if not doc:
                 raise ValueError("Item not found")
             doc["id"] = str(doc.pop("_id"))
             return doc
         result = self.fridge_collection.update_one(
-            {"_id": oid},
-            {"$set": update}
+            owner_filter,
+            {"$set": update},
         )
         if result.matched_count == 0:
             raise ValueError("Item not found")
-        doc = self.fridge_collection.find_one({"_id": oid})
+        doc = self.fridge_collection.find_one(owner_filter)
         if not doc:
             raise ValueError("Item not found")
         doc["id"] = str(doc.pop("_id"))

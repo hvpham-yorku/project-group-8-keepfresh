@@ -67,7 +67,10 @@ def test_create_user_inserts_when_not_existing():
 
     service.create_user(user)
 
-    assert service.users_collection.find_one({"username": "test-username"}) is not None
+    created = service.users_collection.find_one({"username": "test-username"})
+    assert created is not None
+    assert created["password"] != "secret"
+    assert created["password"].startswith("$2")
 
 
 def test_create_user_raises_when_username_taken():
@@ -80,14 +83,26 @@ def test_create_user_raises_when_username_taken():
 
 
 def test_find_user_returns_matching_user():
+    # Signup stores bcrypt; find_user must verify plaintext against hash.
     service = _make_service_with_fake_collection()
-    doc = {"username": "test-username", "password": "secret"}
-    service.users_collection.insert_one(doc)
+    service.create_user(User(username="test-username", password="secret"))
     user = User(username="test-username", password="secret")
 
     found = service.find_user(user)
 
-    assert found == doc
+    assert found is not None
+    assert found["username"] == "test-username"
+
+
+def test_find_user_accepts_legacy_plaintext_password():
+    # Legacy users may still have plaintext password in DB.
+    service = _make_service_with_fake_collection()
+    legacy_doc = {"username": "legacy", "password": "legacy-pass"}
+    service.users_collection.insert_one(legacy_doc)
+
+    found = service.find_user(User(username="legacy", password="legacy-pass"))
+
+    assert found == legacy_doc
 
 
 def _service_with_access_tokens():

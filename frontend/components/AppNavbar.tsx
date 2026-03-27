@@ -1,7 +1,16 @@
+"use client";
+
 import Link from "next/link";
 import { AppBar, Button, Stack, Toolbar, Typography } from "@mui/material";
 
+// Top nav; logout clears local session keys before navigating to /login.
 export default function AppNavbar() {
+  const handleLogoutClick = () => {
+    // Drop token + username so route guards send users to login.
+    localStorage.removeItem("user_token");
+    localStorage.removeItem("username");
+  };
+
   return (
     <AppBar position="static" color="primary" sx={{ bgcolor: "#2563eb" }}>
       <Toolbar sx={{ justifyContent: "space-between" }}>
@@ -23,6 +32,7 @@ export default function AppNavbar() {
             href="/login"
             variant="outlined"
             color="inherit"
+            onClick={handleLogoutClick}
           >
             Logout
           </Button>
