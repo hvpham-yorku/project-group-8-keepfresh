@@ -109,6 +109,8 @@ class Service:
         if result.matched_count == 0:
             raise ValueError("Item not found")
         doc = self.fridge_collection.find_one({"_id": oid})
+        if not doc:
+            raise ValueError("Item not found")
         doc["id"] = str(doc.pop("_id"))
         return doc
 
