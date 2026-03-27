@@ -293,6 +293,12 @@ function UserHomeContent() {
   };
 
   const handleDelete = (id: string) => {
+    const itemToDelete = items.find((item) => item.id === id);
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${itemToDelete?.itemName ?? "this item"}?`
+    );
+    if (!confirmed) return;
+
     const token = localStorage.getItem("user_token");
     if (!token) return;
     fetch(`${API_BASE}/items/${id}`, {
