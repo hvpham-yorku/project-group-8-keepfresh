@@ -1,4 +1,5 @@
 import pytest
+from bson import ObjectId
 from fastapi.testclient import TestClient
 from pymongo import MongoClient
 from main import app
@@ -133,8 +134,16 @@ class TestIntegration:
         assert response.status_code == 200
         item_id = response.json()["item_id"]
         payload = {
-            "name": "Milk",
-            "expiryDate": "2026-03-27",
+            "name": "Organic Milk",
+            "expiry_date": "2026-03-28",
         }
-        response = self.client.put(f"/items/{item_id}", json=payload)
+        response = self.client.put(
+            f"/items/{item_id}",
+            json=payload,
+            headers={"Authorization": userToken},
+        )
         assert response.status_code == 200
+        doc = self.db["fridge"].find_one({"_id": ObjectId(item_id)})
+        assert doc is not None
+        assert doc.get("itemName") == "Organic Milk"
+        assert doc.get("expiryDate") == "2026-03-28"
