@@ -1,3 +1,5 @@
+# MongoDB-backed service: access_tokens for JWT sessions, bcrypt passwords for users.
+
 from datetime import datetime, timezone
 
 import bcrypt
@@ -24,13 +26,14 @@ def _get_recommendations_llm(item_names):
 
 
 def _hash_password(password: str) -> str:
+    # bcrypt hash for new signups; stored as a string on the user document.
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def _verify_password(password: str, stored_password: str) -> bool:
+    # Accept bcrypt hashes; fall back to plaintext compare for legacy DB rows only.
     if stored_password.startswith("$2"):
         return bcrypt.checkpw(password.encode("utf-8"), stored_password.encode("utf-8"))
-    # Backward compatibility for existing plaintext test/dev records.
     return password == stored_password
 
 
@@ -43,6 +46,7 @@ class Service:
         self.fridge_collection = self.db["fridge"]
         self.receipt_sessions_collection = self.db["receipt_sessions"]
         self.recommendations_collection = self.db["recommendations"]
+        # One row per login JWT (jti); logout revokes so API rejects reuse.
         self.access_tokens_collection = self.db["access_tokens"]
         self.access_tokens_collection.create_index("jti", unique=True)
 
@@ -81,6 +85,7 @@ class Service:
         return self.users_collection.find_one({"username": username}) is not None
 
     def create_user(self, user: User):
+        # Store bcrypt hash only (never plaintext).
         if self.user_exists_by_username(user.username):
             raise ValueError("Username already taken")
         user_dict = {
@@ -91,6 +96,7 @@ class Service:
         self.users_collection.insert_one(user_dict)
 
     def find_user(self, user: User):
+        # Login: verify password against bcrypt or legacy plaintext row.
         found_user = self.users_collection.find_one({"username": user.username})
         if not found_user:
             return None
@@ -100,7 +106,7 @@ class Service:
         return None
 
     def update_item(self, item_id: str, item: Item, username: str):
-        """Update a fridge item owned by ``username`` (by ``_id``)."""
+        # Only update rows where fridge.username matches the authenticated user.
         if not ObjectId.is_valid(item_id):
             raise ValueError("Invalid item id")
         owner_filter = {"_id": ObjectId(item_id), "username": username}

@@ -83,6 +83,7 @@ def test_create_user_raises_when_username_taken():
 
 
 def test_find_user_returns_matching_user():
+    # Signup stores bcrypt; find_user must verify plaintext against hash.
     service = _make_service_with_fake_collection()
     service.create_user(User(username="test-username", password="secret"))
     user = User(username="test-username", password="secret")
@@ -94,6 +95,7 @@ def test_find_user_returns_matching_user():
 
 
 def test_find_user_accepts_legacy_plaintext_password():
+    # Legacy users may still have plaintext password in DB.
     service = _make_service_with_fake_collection()
     legacy_doc = {"username": "legacy", "password": "legacy-pass"}
     service.users_collection.insert_one(legacy_doc)

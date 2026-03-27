@@ -1,3 +1,5 @@
+# FastAPI: signup/receipt public; login/logout + Bearer on items and recommendations.
+
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -82,6 +84,7 @@ async def signup(user: User):
 
 @app.post("/login", tags=["auth"])
 async def login(user: User):
+    # Create jti row in access_tokens and return JWT (logout revokes that row).
     check = service.find_user(user)
     if check:
         jti = str(uuid.uuid4())
@@ -111,6 +114,7 @@ async def logout(authorization: str = Header(None)):
         service.revoke_access_token(jti, username)
     return {"status": "ok"}
 
+# PUT updates only if fridge document username matches token user.
 @app.put("/items/{item_id}", tags=["items"])
 async def update_item(
     item_id: str,
@@ -157,6 +161,7 @@ async def receipt_result(session_id: str):
     return {"status": "ok", "items": rec.get("items", [])}
 
 
+# Fridge CRUD below: all require Authorization Bearer.
 @app.post("/items/batch", tags=["items"])
 async def add_food_items_batch(items: list[FoodItem], authorization: str = Header(None)):
     username = require_authenticated_user(authorization, service)
@@ -198,6 +203,7 @@ async def delete_food_item(item_id: str, authorization: str = Header(None)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+# Recommendations: same Bearer guard as /items.
 @app.get("/recommendations", tags=["recommendations"])
 async def get_recommendations(authorization: str = Header(None)):
     """Return recommendations: use cached if fridge items unchanged, else run LLM and return."""

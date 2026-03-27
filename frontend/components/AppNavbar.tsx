@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { AppBar, Button, Stack, Toolbar, Typography } from "@mui/material";
 
+// Top nav; logout clears local session keys before navigating to /login.
 export default function AppNavbar() {
   const handleLogoutClick = () => {
+    // Drop token + username so route guards send users to login.
     localStorage.removeItem("user_token");
     localStorage.removeItem("username");
   };

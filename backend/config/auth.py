@@ -1,8 +1,4 @@
-"""JWT helpers and Bearer-token authentication for the KeepFresh API.
-
-Tokens embed a ``jti`` claim; ``Service.is_access_token_valid`` checks the
-``access_tokens`` collection so sessions can be revoked server-side (logout).
-"""
+# JWT helpers: jti in token must match a valid row in Mongo access_tokens.
 
 import os
 
@@ -19,6 +15,7 @@ JWT_SECRET = os.environ.get(
 
 
 def encode_token(username: str, jti: str, exp: datetime | None = None):
+    # sub=username, jti=session id checked in DB on each protected request.
     if exp is None:
         exp = datetime.now(timezone.utc) + timedelta(minutes=30)
     payload = {
@@ -30,11 +27,12 @@ def encode_token(username: str, jti: str, exp: datetime | None = None):
 
 
 def decode_token(token: str):
+    # PyJWT verifies signature and exp automatically.
     return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
 
 
 def get_username_from_token_string(token: str, service):
-    """Parse Bearer token; require ``jti`` and a valid ``access_tokens`` row."""
+    # Return username only if JWT is valid and access_tokens says session is active.
     if service is None:
         return None
     try:
@@ -51,11 +49,7 @@ def get_username_from_token_string(token: str, service):
 
 
 def require_authenticated_user(authorization: str | None, service) -> str:
-    """Validate ``Authorization: Bearer <jwt>`` and return the authenticated username.
-
-    Raises ``HTTPException`` 401 if the header is missing or the token is invalid/revoked.
-    Centralizes the same checks used across protected routes.
-    """
+    # Shared guard for protected routes: missing/invalid Bearer -> 401.
     if not authorization:
         raise HTTPException(status_code=401, detail="Not Authorized")
     token = authorization.replace("Bearer ", "").strip()
