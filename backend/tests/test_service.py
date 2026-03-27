@@ -19,6 +19,14 @@ class FakeCollection:
     def insert_one(self, doc):
         self._docs.append(doc)
 
+    def update_one(self, query, update):
+        for doc in self._docs:
+            if all(doc.get(k) == v for k, v in query.items()):
+                if "$set" in update:
+                    doc.update(update["$set"])
+                return type("Result", (), {"modified_count": 1})()
+        return type("Result", (), {"modified_count": 0})()
+
 
 class FakeAccessTokensCollection:
     def __init__(self):
@@ -63,17 +71,33 @@ def test_user_exists_by_username():
 
 def test_create_user_inserts_when_not_existing():
     service = _make_service_with_fake_collection()
-    user = User(username="test-username", password="secret")
+    user = User(
+        username="test-username",
+        password="secret",
+        email="test@example.com",
+        notification_days_before_expiry=7,
+        custom_notification_days_before_expiry=4,
+    )
 
     service.create_user(user)
 
-    assert service.users_collection.find_one({"username": "test-username"}) is not None
+    saved = service.users_collection.find_one({"username": "test-username"})
+    assert saved is not None
+    assert saved["email"] == "test@example.com"
+    assert saved["notification_days_before_expiry"] == 7
+    assert saved["custom_notification_days_before_expiry"] == 4
 
 
 def test_create_user_raises_when_username_taken():
     service = _make_service_with_fake_collection()
-    service.users_collection.insert_one({"username": "test-username", "password": "secret"})
-    user = User(username="test-username", password="other")
+    service.users_collection.insert_one({"username": "test-username", "password": "secret", "email": "test@example.com"})
+    user = User(
+        username="test-username",
+        password="other",
+        email="test@example.com",
+        notification_days_before_expiry=7,
+        custom_notification_days_before_expiry=None,
+    )
 
     with pytest.raises(ValueError):
         service.create_user(user)
@@ -81,9 +105,15 @@ def test_create_user_raises_when_username_taken():
 
 def test_find_user_returns_matching_user():
     service = _make_service_with_fake_collection()
-    doc = {"username": "test-username", "password": "secret"}
+    doc = {"username": "test-username", "password": "secret", "email": "test@example.com"}
     service.users_collection.insert_one(doc)
-    user = User(username="test-username", password="secret")
+    user = User(
+        username="test-username",
+        password="secret",
+        email="test@example.com",
+        notification_days_before_expiry=7,
+        custom_notification_days_before_expiry=None,
+    )
 
     found = service.find_user(user)
 
@@ -118,4 +148,23 @@ def test_revoke_access_token():
     service.create_access_token("jti-r", "alice", exp)
     assert service.revoke_access_token("jti-r", "alice") is True
     assert service.is_access_token_valid("jti-r", "alice") is False
+
+
+def test_update_user_notification_preferences():
+    service = _make_service_with_fake_collection()
+    service.users_collection.insert_one({
+        "username": "test-username",
+        "password": "secret",
+        "email": "test@example.com",
+        "notification_days_before_expiry": 7,
+        "custom_notification_days_before_expiry": None,
+    })
+
+    updated = service.update_user_notification_preferences(
+        "test-username", notification_days_before_expiry=5, custom_notification_days_before_expiry=2
+    )
+
+    assert updated["notification_days_before_expiry"] == 5
+    assert updated["custom_notification_days_before_expiry"] == 2
+
 

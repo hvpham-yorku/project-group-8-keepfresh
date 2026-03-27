@@ -217,6 +217,61 @@ async def delete_food_item(item_id: str, authorization: str = Header(None)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.get("/user", tags=["auth"])
+async def get_user(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+    token = authorization.replace("Bearer ", "").strip()
+    username = get_username_from_token_string(token, service)
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid user token")
+    user = service.get_user_by_username(username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "status": "ok",
+        "user": {
+            "username": user.get("username"),
+            "email": user.get("email"),
+            "notification_days_before_expiry": user.get("notification_days_before_expiry", 7),
+            "custom_notification_days_before_expiry": user.get("custom_notification_days_before_expiry"),
+        },
+    }
+
+
+@app.put("/user", tags=["auth"])
+async def update_user(notification_days_before_expiry: int | None = None, custom_notification_days_before_expiry: int | None = None, authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not Authorized")
+    token = authorization.replace("Bearer ", "").strip()
+    username = get_username_from_token_string(token, service)
+    if not username:
+        raise HTTPException(status_code=401, detail="invalid user token")
+    if notification_days_before_expiry is not None and notification_days_before_expiry < 0:
+        raise HTTPException(status_code=400, detail="notification_days_before_expiry must be non-negative")
+    if custom_notification_days_before_expiry is not None and custom_notification_days_before_expiry < 0:
+        raise HTTPException(status_code=400, detail="custom_notification_days_before_expiry must be non-negative")
+    user = service.update_user_notification_preferences(
+        username,
+        notification_days_before_expiry=notification_days_before_expiry,
+        custom_notification_days_before_expiry=custom_notification_days_before_expiry,
+    )
+    return {
+        "status": "ok",
+        "user": {
+            "username": user.get("username"),
+            "email": user.get("email"),
+            "notification_days_before_expiry": user.get("notification_days_before_expiry", 7),
+            "custom_notification_days_before_expiry": user.get("custom_notification_days_before_expiry"),
+        },
+    }
+
+
+@app.post("/notifications/run", tags=["items"])
+async def run_notifications():
+    return service.check_and_send_notifications()
+
+
 @app.get("/recommendations", tags=["recommendations"])
 async def get_recommendations(authorization: str = Header(None)):
     """Return recommendations: use cached if fridge items unchanged, else run LLM and return."""

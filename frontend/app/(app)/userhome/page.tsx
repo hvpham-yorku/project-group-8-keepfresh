@@ -109,6 +109,9 @@ function UserHomeContent() {
   const searchParams = useSearchParams();
 
   const [username, setUsername] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [notificationDays, setNotificationDays] = useState<number>(7);
+  const [customNotificationDays, setCustomNotificationDays] = useState<number | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [itemsLoading, setItemsLoading] = useState(true);
   const [error, setError] = useState<string>("");
@@ -211,6 +214,24 @@ function UserHomeContent() {
   useEffect(() => {
     const storedUsername = localStorage.getItem("username");
     if (storedUsername) setUsername(storedUsername);
+  }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("user_token");
+    if (!token) return;
+    fetch(`${API_BASE}/user`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data) => {
+        const u = data.user;
+        setEmail(u.email || "");
+        setNotificationDays(u.notification_days_before_expiry ?? 7);
+        setCustomNotificationDays(u.custom_notification_days_before_expiry ?? null);
+      })
+      .catch(() => {
+        /* no-op */
+      });
   }, []);
 
   useEffect(() => {
@@ -415,6 +436,63 @@ function UserHomeContent() {
         </Box>
 
         <Paper elevation={3} sx={{ p: 3 }}>
+          <Box mb={2}>
+            <Typography variant="subtitle1" fontWeight={600}>
+              Notification settings
+            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems="center" sx={{ mt: 1 }}>
+              <TextField
+                label="Default days before expiry"
+                type="number"
+                value={notificationDays}
+                onChange={(e) => setNotificationDays(Number(e.target.value))}
+                size="small"
+                sx={{ width: 200 }}
+                InputProps={{ inputProps: { min: 0 } }}
+              />
+              <TextField
+                label="Extra days before expiry (optional)"
+                type="number"
+                value={customNotificationDays ?? ''}
+                onChange={(e) => setCustomNotificationDays(e.target.value === '' ? null : Number(e.target.value))}
+                size="small"
+                sx={{ width: 220 }}
+                InputProps={{ inputProps: { min: 0 } }}
+              />
+              <Button
+                variant="outlined"
+                onClick={async () => {
+                  const token = localStorage.getItem('user_token');
+                  if (!token) return;
+                  await fetch(`${API_BASE}/user`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      notification_days_before_expiry: notificationDays,
+                      custom_notification_days_before_expiry: customNotificationDays,
+                    }),
+                  });
+                }}
+              >
+                Save
+              </Button>
+              <Button
+                variant="contained"
+                onClick={async () => {
+                  await fetch(`${API_BASE}/notifications/run`, { method: 'POST' });
+                }}
+              >
+                Send due notifications now
+              </Button>
+            </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Email: {email || 'not set'}
+            </Typography>
+          </Box>
+          <Box sx={{ borderBottom: '1px solid', borderColor: 'divider', mb: 2 }} />
           <Stack
             direction="row"
             justifyContent="space-between"

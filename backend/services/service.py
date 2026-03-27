@@ -74,6 +74,9 @@ class Service:
         user_dict = {
             "username": user.username,
             "password": user.password,
+            "email": user.email,
+            "notification_days_before_expiry": user.notification_days_before_expiry,
+            "custom_notification_days_before_expiry": user.custom_notification_days_before_expiry,
             "food_items": []
         }
         self.users_collection.insert_one(user_dict)
@@ -84,6 +87,118 @@ class Service:
             "password" : user.password
         })
         return user
+
+    def get_user_by_username(self, username: str):
+        return self.users_collection.find_one({"username": username})
+
+    def update_user_notification_preferences(
+        self,
+        username: str,
+        notification_days_before_expiry: int | None = None,
+        custom_notification_days_before_expiry: int | None = None,
+    ):
+        update_fields = {}
+        if notification_days_before_expiry is not None:
+            update_fields["notification_days_before_expiry"] = notification_days_before_expiry
+        if custom_notification_days_before_expiry is not None:
+            update_fields["custom_notification_days_before_expiry"] = custom_notification_days_before_expiry
+        if not update_fields:
+            return self.get_user_by_username(username)
+        self.users_collection.update_one(
+            {"username": username},
+            {"$set": update_fields},
+        )
+        return self.get_user_by_username(username)
+
+    def _send_email(self, to_email: str, subject: str, body: str):
+        # minimal SMTP/email function; configure env vars for real send
+        import os
+        import smtplib
+        from email.message import EmailMessage
+
+        smtp_host = os.getenv("SMTP_HOST")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+        smtp_user = os.getenv("SMTP_USER")
+        smtp_pass = os.getenv("SMTP_PASS")
+
+        if not smtp_host or not smtp_user or not smtp_pass:
+            print(f"[NOTIFICATION] To={to_email} Subject={subject} Body={body}")
+            return
+
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = smtp_user
+        msg["To"] = to_email
+        msg.set_content(body)
+
+        with smtplib.SMTP(smtp_host, smtp_port) as smtp:
+            smtp.starttls()
+            smtp.login(smtp_user, smtp_pass)
+            smtp.send_message(msg)
+
+    def check_and_send_notifications(self):
+        from datetime import datetime
+
+        now = datetime.now().date()
+        users = list(self.users_collection.find({}))
+
+        sent = []
+        for user in users:
+            username = user.get("username")
+            email = user.get("email")
+            default_days = user.get("notification_days_before_expiry", 7)
+            custom_days = user.get("custom_notification_days_before_expiry")
+
+            if not email:
+                continue
+
+            items = self.fridge_collection.find({"username": username})
+            for item in items:
+                expiry_date_str = item.get("expiryDate")
+                if not expiry_date_str:
+                    continue
+                try:
+                    expiry_date = datetime.fromisoformat(expiry_date_str).date()
+                except Exception:
+                    continue
+
+                days_left = (expiry_date - now).days
+
+                if days_left <= 0 and not item.get("notified_expired"):
+                    subject = f"KeepFresh: {item.get('itemName')} expired"
+                    body = f"Your item '{item.get('itemName')}' expired {abs(days_left)} day(s) ago (expiry: {expiry_date_str})."
+                    self._send_email(email, subject, body)
+                    self.fridge_collection.update_one(
+                        {"_id": item.get("_id")},
+                        {"$set": {"notified_expired": True}},
+                    )
+                    sent.append((username, item.get("itemName"), "expired"))
+                    continue
+
+                if days_left == default_days and not item.get("notified_default"):
+                    subject = f"KeepFresh: {item.get('itemName')} expires in {default_days} days"
+                    body = f"Your item '{item.get('itemName')}' expires on {expiry_date_str} ({days_left} day(s) left)."
+                    self._send_email(email, subject, body)
+                    self.fridge_collection.update_one(
+                        {"_id": item.get("_id")},
+                        {"$set": {"notified_default": True}},
+                    )
+                    sent.append((username, item.get("itemName"), "default"))
+
+                if custom_days is not None and custom_days != default_days and days_left == custom_days and not item.get("notified_custom"):
+                    subject = f"KeepFresh (custom): {item.get('itemName')} expires in {custom_days} days"
+                    body = f"Your item '{item.get('itemName')}' expires on {expiry_date_str} ({days_left} day(s) left)."
+                    self._send_email(email, subject, body)
+                    self.fridge_collection.update_one(
+                        {"_id": item.get("_id")},
+                        {"$set": {"notified_custom": True}},
+                    )
+                    sent.append((username, item.get("itemName"), "custom"))
+
+        return {
+            "status": "ok",
+            "sent": sent,
+        }
 
     def update_item(self, item_id: str, item: Item):
         """Update a fridge item by _id (itemName, expiryDate)."""
