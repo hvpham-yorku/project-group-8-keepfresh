@@ -20,8 +20,9 @@ import { API_BASE } from '@/lib/api';
 const MIN_LENGTH = 3;
 
 export default function SignUp() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState(''); // field for usernames
+  const [password, setPassword] = useState(''); //pw field
+  const [email, setEmail] = useState(''); //email field (notifications)
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -37,11 +38,22 @@ export default function SignUp() {
       setError(`Password must be at least ${MIN_LENGTH} characters`);
       return;
     }
+
+    if (!email.trim()) { //checks if user inputted email
+      setError('Email is required');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { // default email format check
+      setError('Invalid email format');
+      return;
+    }
+
+
     try {
       const api = await fetch(`${API_BASE}/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), password }),
+        body: JSON.stringify({ username: username.trim(), password, email: email.trim()}), //added the email to the JSON
       });
       const data = await api.json().catch(() => ({}));
       if (api.ok) {
@@ -97,6 +109,13 @@ export default function SignUp() {
                 placeholder="Enter username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                fullWidth
+              />
+              <TextField
+                label="Email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 fullWidth
               />
               <TextField

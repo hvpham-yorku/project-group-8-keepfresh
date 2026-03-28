@@ -7,9 +7,9 @@ from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, File, UploadFile, HTTPException, Header
 from services.service import Service
 from fastapi.middleware.cors import CORSMiddleware
-from models.user import User
+from models.user import User, LoginRequest
 from models.item import Item
-from config.auth import encode_token, decode_token, require_authenticated_user
+from config.auth import encode_token, decode_token, require_authenticated_user, get_username_from_token_string
 from models.food import FoodItem
 from receipt_ocr import extract_grocery_items
 
@@ -83,7 +83,7 @@ async def signup(user: User):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/login", tags=["auth"])
-async def login(user: User):
+async def login(user: LoginRequest):
     # Create jti row in access_tokens and return JWT (logout revokes that row).
     check = service.find_user(user)
     if check:
@@ -91,7 +91,7 @@ async def login(user: User):
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
         service.create_access_token(jti, user.username, expires_at)
         token = encode_token(user.username, jti=jti, exp=expires_at)
-        return {"status": "ok", "user_token": token, "username": user.username}
+        return {"status": "ok", "user_token": token, "username": user.username, "email" : user.email}
     else:
         raise HTTPException(status_code=401, detail="Invalid")
 
@@ -221,3 +221,51 @@ async def refresh_recommendations(authorization: str = Header(None)):
         return {"status": "ok", "recommendations": recs}
     except ValueError as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/user", tags=["auth"])
+async def get_user(authorization: str = Header(None)):
+    username = require_authenticated_user(authorization, service) #using new authentication 
+    user_doc = service.get_user_by_username(username) #gets the user from username in db
+    if not user_doc:
+        raise HTTPException(status_code=404, detail="User not found") #catches if dne
+
+    return {
+        "status": "ok",
+        "user": {
+            "username": user_doc.get("username"), #get user name
+            "email": user_doc.get("email"), #get user email
+            "notification_days_before_expiry": user_doc.get("notification_days_before_expiry", 7), #get default noti days
+            "custom_notification_days_before_expiry": user_doc.get("custom_notification_days_before_expiry"), #get custom not day if exists
+        }, 
+    }
+
+@app.put("/user", tags=["auth"])
+async def update_user(notification_days_before_expiry: int | None = None, custom_notification_days_before_expiry: int | None = None, authorization: str = Header(None)):
+    username = require_authenticated_user(authorization, service) #new authentication 
+
+    if notification_days_before_expiry is not None and notification_days_before_expiry < 0: #simple catches in case no noti days
+        raise HTTPException(status_code=400, detail="notification_days_before_expiry must be non-negative")
+    
+    if custom_notification_days_before_expiry is not None and custom_notification_days_before_expiry < 0: #simple catch just in case no custom noti days
+        raise HTTPException(status_code=400, detail="custom_notification_days_before_expiry must be non-negative")
+    
+    user = service.update_user_notification_preferences( #update user noti preferences
+        username,
+        notification_days_before_expiry=notification_days_before_expiry,
+        custom_notification_days_before_expiry=custom_notification_days_before_expiry,
+    )
+
+    return {
+        "status": "ok",
+        "user": {
+            "username": user.get("username"),
+            "email": user.get("email"),
+            "notification_days_before_expiry": user.get("notification_days_before_expiry", 7),
+            "custom_notification_days_before_expiry": user.get("custom_notification_days_before_expiry"),
+        },
+    }
+
+@app.post("/notifications/run", tags=["items"]) #sends the noti
+async def run_notifications():
+    return service.check_and_send_notifications()
+
