@@ -158,3 +158,19 @@ Next.js inlines `NEXT_PUBLIC_*` at **build** time. For `docker compose`, put the
 
 - **Backend:** Python 3.11+, install `backend/requirements.txt`, run MongoDB locally or point `MongoClient` at your URI (the code currently uses `mongodb://mongodb:27017` for Docker; adjust for local runs).
 - **Frontend:** `cd frontend && npm install && npm run dev` (listens on `0.0.0.0`). Use `frontend/.env.local` for `NEXT_PUBLIC_*`.
+
+## Tests
+
+**Backend (pytest):** install dependencies, then from `backend/` run:
+
+```bash
+cd backend && pytest
+```
+
+**Frontend (Playwright e2e):** from `frontend/`, run `npm install` then `npx playwright install` once (installs browsers). Playwright starts `npm run dev` automatically unless a dev server is already running (`playwright.config.ts`). Then:
+
+```bash
+cd frontend && npm run test:e2e
+```
+
+Optional: `npm run test:e2e:headed` to watch the browser, or `npm run test:e2e:report` to open the HTML report after a run.
