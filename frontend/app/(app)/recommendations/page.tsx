@@ -95,7 +95,7 @@ function CategoryCard({
         </Box>
       ) : (
         <Typography variant="body2" color="text.secondary">
-          —
+          -
         </Typography>
       )}
     </Paper>
@@ -184,7 +184,7 @@ function MappingCard({
         </Stack>
       ) : (
         <Typography variant="body2" color="text.secondary">
-          —
+          -
         </Typography>
       )}
     </Paper>

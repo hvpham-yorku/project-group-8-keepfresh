@@ -29,7 +29,7 @@ export default function PendingItemsForm({
   onUpdate,
   onRemove,
   onSave,
-  title = "Items from receipt — edit & save",
+  title = "Items from receipt - edit & save",
   saveLabel = "Save to Fridge",
   extraAction,
   datePickerMinWidth = 160,
