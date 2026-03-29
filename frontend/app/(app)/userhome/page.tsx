@@ -429,7 +429,7 @@ function UserHomeContent() {
   const [search, setSearch] = useState("");
 
   const filteredItems = sortedItems.filter((item) =>
-  item.itemName.toLowerCase().includes(search.toLowerCase())
+    item.itemName.toLowerCase().includes(search.trim().toLowerCase())
   );
 
   return (
