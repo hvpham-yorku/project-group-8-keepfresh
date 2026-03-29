@@ -26,7 +26,7 @@ import { QRCodeSVG } from "qrcode.react";
 import ReceiptProcessingOverlay from "@/components/ReceiptProcessingOverlay";
 import PendingItemsForm from "@/components/PendingItemsForm";
 import { useReceiptUpload } from "@/hooks/useReceiptUpload";
-import { API_BASE, APP_BASE } from "@/lib/api";
+import { API_BASE, getQrAppBase } from "@/lib/api";
 import { buildBatchPayload, isMobileUpload } from "@/lib/receipt";
 
 function makeUploadSessionId(): string {
@@ -149,10 +149,10 @@ function UserHomeContent() {
     [receiptHandleFileSelect]
   );
 
-  const baseUrl = typeof window !== "undefined" ? (APP_BASE || window.location.origin) : APP_BASE;
+  const qrAppBase = getQrAppBase();
   const uploadUrl = useMemo(
-    () => (uploadSessionId && baseUrl ? `${baseUrl}/upload?session=${uploadSessionId}` : ""),
-    [uploadSessionId, baseUrl]
+    () => (uploadSessionId && qrAppBase ? `${qrAppBase}/upload?session=${uploadSessionId}` : ""),
+    [uploadSessionId, qrAppBase]
   );
 
   useEffect(() => {
