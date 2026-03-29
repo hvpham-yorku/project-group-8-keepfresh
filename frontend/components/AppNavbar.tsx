@@ -24,9 +24,7 @@ export default function AppNavbar() {
           <Button component={Link} href="/recommendations" color="inherit">
             Recommendations
           </Button>
-          <Button component={Link} href="/profile" color="inherit">
-            Profile
-          </Button>
+          
           <Button
             component={Link}
             href="/login"
