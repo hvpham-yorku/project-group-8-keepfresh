@@ -429,7 +429,7 @@ function UserHomeContent() {
   const [search, setSearch] = useState("");
 
   const filteredItems = sortedItems.filter((item) =>
-  item.itemName.toLowerCase().includes(search.toLowerCase())
+    item.itemName.toLowerCase().includes(search.trim().toLowerCase())
   );
 
   return (
@@ -545,6 +545,10 @@ function UserHomeContent() {
             <Typography color="text.secondary">
               No items yet. Add your first food item!
             </Typography>
+          ) : filteredItems.length === 0 ? (
+            <Typography color="text.secondary">
+              No matches found for your search.
+            </Typography>
           ) : (
             <Stack
               divider={
@@ -567,8 +571,9 @@ function UserHomeContent() {
                       justifyContent: "space-between",
                     }}
                   >
-                    <Box>
-                      <Typography fontWeight={500}>{item.itemName}</Typography>
+                    
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography fontWeight={500} sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.itemName}</Typography>
 
                       <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                         <Typography variant="body2" color="text.secondary">
