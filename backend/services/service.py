@@ -303,6 +303,7 @@ class Service:
         users = list(self.users_collection.find({}))
 
         sent = []
+        print(f"[NOTIFICATION] Checking notifications for {len(users)} users")
         #checks each user 
         for user in users:
             username = user.get("username")
@@ -311,26 +312,32 @@ class Service:
             custom_days = user.get("custom_notification_days_before_expiry")
 
             if not email:
+                print(f"[NOTIFICATION] Skipping user {username}: no email")
                 continue
             
-            items = self.fridge_collection.find({"username": username})
+            items = list(self.fridge_collection.find({"username": username}))
+            print(f"[NOTIFICATION] User {username} has {len(items)} items")
             #checks if any of the user items are about to go bad
             for item in items:
                 expiry_date_str = item.get("expiryDate")
+                item_name = item.get("itemName", "Unknown")
                 if not expiry_date_str:
+                    print(f"[NOTIFICATION] Item '{item_name}' has no expiry date")
                     continue
                 try:
                     expiry_date = datetime.fromisoformat(expiry_date_str).date()
                 #skip any invalid dates to avoid crash    
-                except Exception:
+                except Exception as e:
+                    print(f"[NOTIFICATION] Item '{item_name}' has invalid expiry date: {expiry_date_str} ({e})")
                     continue
 
                 days_left = (expiry_date - now).days
+                print(f"[NOTIFICATION] Item '{item_name}' expires on {expiry_date_str}, days_left={days_left}, notified_expired={item.get('notified_expired')}, notified_default={item.get('notified_default')}, notified_custom={item.get('notified_custom')}") #print statement for testing
                 
                 #if item is expired and we HAVE NOT sent the noti yet
                 if days_left <= 0 and not item.get("notified_expired"): 
                     subject = f"KeepFresh: {item.get('itemName')} expired"
-                    body = f"Your item '{item.get('itemName')}' expired {abs(days_left)} day(s) ago (expiry: {expiry_date_str})."
+                    body = f"Hey! This is a reminder that your '{item.get('itemName')}' expired {abs(days_left)} day(s) ago (expiry: {expiry_date_str}). Be sure to remove it from your fridge!"
                 
                     self.send_email(email, subject, body)
                     self.fridge_collection.update_one(
@@ -343,7 +350,7 @@ class Service:
                 #our default remind, if expires in 7 days
                 if days_left == default_days and not item.get("notified_default"):
                     subject = f"KeepFresh: {item.get('itemName')} expires in {default_days} days"
-                    body = f"Your item '{item.get('itemName')}' expires on {expiry_date_str} ({days_left} day(s) left)."
+                    body = f"Hey! Your '{item.get('itemName')}' expires on {expiry_date_str} ({days_left} day(s) left). Be sure to use it before it goes bad!"
                     self.send_email(email, subject, body)
                     self.fridge_collection.update_one(
                         {"_id": item.get("_id")},
@@ -354,7 +361,7 @@ class Service:
                 #custom noti
                 if custom_days is not None and custom_days != default_days and days_left == custom_days and not item.get("notified_custom"):
                     subject = f"KeepFresh (custom): {item.get('itemName')} expires in {custom_days} days"
-                    body = f"Your item '{item.get('itemName')}' expires on {expiry_date_str} ({days_left} day(s) left)."
+                    body = f"Hey! Your '{item.get('itemName')}' expires on {expiry_date_str} ({days_left} day(s) left). Be sure to use it before it goes bad!"
                     self.send_email(email, subject, body)
                     self.fridge_collection.update_one(
                         {"_id": item.get("_id")},
