@@ -567,8 +567,9 @@ function UserHomeContent() {
                       justifyContent: "space-between",
                     }}
                   >
-                    <Box>
-                      <Typography fontWeight={500}>{item.itemName}</Typography>
+                    
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography fontWeight={500} sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.itemName}</Typography>
 
                       <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                         <Typography variant="body2" color="text.secondary">
