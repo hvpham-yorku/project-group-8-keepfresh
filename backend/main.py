@@ -91,7 +91,12 @@ async def login(user: LoginRequest):
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
         service.create_access_token(jti, user.username, expires_at)
         token = encode_token(user.username, jti=jti, exp=expires_at)
-        return {"status": "ok", "user_token": token, "username": user.username, "email" : user.email}
+        return {
+            "status": "ok",
+            "user_token": token,
+            "username": user.username,
+            "email": check.get("email"),
+        }
     else:
         raise HTTPException(status_code=401, detail="Invalid")
 
