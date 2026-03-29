@@ -545,6 +545,10 @@ function UserHomeContent() {
             <Typography color="text.secondary">
               No items yet. Add your first food item!
             </Typography>
+          ) : filteredItems.length === 0 ? (
+            <Typography color="text.secondary">
+              No matches found for your search.
+            </Typography>
           ) : (
             <Stack
               divider={
