@@ -118,7 +118,7 @@ function UploadContent() {
             ) : (
               <Paper elevation={2} sx={{ p: 3 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Take a photo of your receipt — it will appear on the browser that showed the QR code.
+                  Take a photo of your receipt - it will appear on the browser that showed the QR code.
                 </Typography>
                 <Button variant="contained" component="label" fullWidth size="large">
                   {isMobileUpload() ? "Take photo" : "Choose image"}
