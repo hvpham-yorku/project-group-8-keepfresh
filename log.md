@@ -34,3 +34,12 @@ ITR_2 Logs:
 Plan:
 - Complete UserHome Page CRUD Operations Part 2
 - Start Moving onto more advanced features (Notifications, Sorting, Searching, etc)
+
+Shifted Here: Still made the endpoints, however now working on QR Code scanning and AI Implementation
+
+ITR_3 Logs:
+
+- Finished the QR Code scanning feature and also added a recommendation pipeline with openAI
+- Added a notifications system for emails
+- Added sorting and searching
+- Completed all testing 
