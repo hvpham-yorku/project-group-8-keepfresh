@@ -46,15 +46,18 @@ function LoginForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password }),
       });
+      const data = await api.json().catch(() => ({}));
+
       if (api.ok) {
-        const data = await api.json();
         localStorage.setItem("user_token", data.user_token);
         if (data.username) localStorage.setItem("username", data.username);
         const returnTo = searchParams.get("return") || "/userhome";
         router.push(returnTo);
         return;
       }
-      setError("Login failed");
+
+      const detail = (data as { detail?: unknown }).detail as string | undefined;
+      setError(detail || "Login failed");
     } catch {
       setError("Network error");
     }
