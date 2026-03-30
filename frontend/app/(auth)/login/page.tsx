@@ -16,8 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import { API_BASE } from "@/lib/api";
-
-const MIN_LENGTH = 3;
+import { validateUsername, validatePassword } from "@/lib/authValidation";
 
 function LoginForm() {
   const [username, setUsername] = useState("");
@@ -30,12 +29,15 @@ function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (username.trim().length < MIN_LENGTH) {
-      setError(`Username must be at least ${MIN_LENGTH} characters`);
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      setError(usernameError);
       return;
     }
-    if (password.length < MIN_LENGTH) {
-      setError(`Password must be at least ${MIN_LENGTH} characters`);
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
     try {
