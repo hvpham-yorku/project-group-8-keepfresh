@@ -16,8 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { API_BASE } from '@/lib/api';
-
-const MIN_LENGTH = 3;
+import { validateUsername, validatePassword, validateEmail } from '@/lib/authValidation';
 
 export default function SignUp() {
   const [username, setUsername] = useState(''); // field for usernames
@@ -30,21 +29,21 @@ export default function SignUp() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (username.trim().length < MIN_LENGTH) {
-      setError(`Username must be at least ${MIN_LENGTH} characters`);
-      return;
-    }
-    if (password.length < MIN_LENGTH) {
-      setError(`Password must be at least ${MIN_LENGTH} characters`);
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      setError(usernameError);
       return;
     }
 
-    if (!email.trim()) { //checks if user inputted email
-      setError('Email is required');
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { // default email format check
-      setError('Invalid email format');
+
+    const emailError = validateEmail(email);
+    if (emailError) {
+      setError(emailError);
       return;
     }
 
