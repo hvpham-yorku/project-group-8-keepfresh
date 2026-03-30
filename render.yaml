@@ -11,7 +11,7 @@ services:
     name: keepfresh-mongodb
     runtime: docker
     repo: https://github.com/render-examples/mongodb.git
-    branch: master
+    branch: main
     region: oregon
     disk:
       name: mongo-data
