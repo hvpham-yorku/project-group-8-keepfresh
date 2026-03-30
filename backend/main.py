@@ -1,5 +1,9 @@
 # FastAPI: signup/receipt public; login/logout + Bearer on items and recommendations.
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import os
 import uuid
 from datetime import datetime, timedelta, timezone

@@ -40,9 +40,21 @@ def _verify_password(password: str, stored_password: str) -> bool:
     return password == stored_password
 
 
+def _mongo_uri() -> str:
+    """Compose: default host `mongodb`. Atlas: full MONGODB_URI. Render private Mongo: MONGODB_HOST + MONGODB_PORT."""
+    raw = os.getenv("MONGODB_URI", "").strip()
+    if raw:
+        return raw
+    host = os.getenv("MONGODB_HOST", "").strip()
+    if host:
+        port = os.getenv("MONGODB_PORT", "27017").strip()
+        return f"mongodb://{host}:{port}"
+    return "mongodb://mongodb:27017"
+
+
 class Service:
     def __init__(self):
-        self.client = MongoClient("mongodb://mongodb:27017")  
+        self.client = MongoClient(_mongo_uri())
         self.db = self.client["keepfresh"]
         self.users_collection = self.db["users"]
         self.items_collection = self.db["items"]

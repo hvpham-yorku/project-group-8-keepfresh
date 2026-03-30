@@ -14,7 +14,9 @@ class TestIntegration:
     @pytest.fixture(autouse=True)
     def setup(self):
         self.client = TestClient(app)
-        self.mongo = MongoClient("mongodb://mongodb:27017")
+        from services.service import _mongo_uri
+
+        self.mongo = MongoClient(_mongo_uri())
         self.db = self.mongo["keepfresh"]
         yield
         self.db["users"].drop()

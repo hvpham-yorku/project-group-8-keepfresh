@@ -1,0 +1,55 @@
+# Render Blueprint: MongoDB (private service) + FastAPI (web).
+# Docs: https://render.com/docs/deploy-mongodb
+#
+# Alternative: skip the MongoDB service and set MONGODB_URI to MongoDB Atlas in the dashboard.
+#
+# Private services with disks may require a paid instance type on Render; Atlas free tier is $0.
+
+services:
+  # Official MongoDB image on Render (persistent disk). Internal hostname is wired to the API below.
+  - type: pserv
+    name: keepfresh-mongodb
+    runtime: docker
+    repo: https://github.com/render-examples/mongodb.git
+    branch: master
+    region: oregon
+    disk:
+      name: mongo-data
+      mountPath: /data/db
+      sizeGB: 10
+
+  - type: web
+    name: keepfresh-backend
+    runtime: docker
+    region: oregon
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /
+    envVars:
+      # Set either these (from private Mongo) or MONGODB_URI (e.g. Atlas) in the dashboard.
+      - key: MONGODB_HOST
+        fromService:
+          name: keepfresh-mongodb
+          type: pserv
+          property: host
+      - key: MONGODB_PORT
+        value: "27017"
+      - key: MONGODB_URI
+        sync: false
+      - key: OPEN_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: DEV_HOST
+        sync: false

@@ -34,9 +34,10 @@ High-level flow:
 ## Repository layout
 
 ```
-├── frontend/          # Next.js app
-├── backend/           # FastAPI app
-├── docker-compose.yml # MongoDB + backend + frontend
+├── frontend/          # Next.js app (Vercel: set root directory to this folder)
+├── backend/           # FastAPI app (Render: Docker uses backend/Dockerfile)
+├── docker-compose.yml # Local MongoDB + backend + frontend
+├── render.yaml        # Optional Render Blueprint for the API
 └── .env               # Local secrets (create from .env.example; not committed)
 ```
 
@@ -98,6 +99,14 @@ docker compose down -v
 
 Create **`.env`** from **`.env.example`**. Variables below are read by the **backend** unless noted. Never commit real secrets.
 
+### Database
+
+| Variable | Description |
+|----------|-------------|
+| `MONGODB_URI` | Full MongoDB connection string. If set, used as-is (e.g. **Atlas** `mongodb+srv://...`). If unset, see `MONGODB_HOST` below. Local Docker Compose defaults to `mongodb://mongodb:27017` when neither URI nor host is set. |
+| `MONGODB_HOST` | Optional. Private hostname for Mongo on **Render** (often set automatically via Blueprint `fromService`). Used with `MONGODB_PORT` to build `mongodb://<host>:<port>`. Ignored if `MONGODB_URI` is set. |
+| `MONGODB_PORT` | Optional (default `27017`). Used with `MONGODB_HOST`. |
+
 ### Required for AI features (receipts + recommendations)
 
 | Variable | Description |
@@ -137,12 +146,51 @@ Next.js inlines `NEXT_PUBLIC_*` at **build** time. For `docker compose`, put the
 | Variable | Description |
 |----------|-------------|
 | `NEXT_PUBLIC_DEV_HOST` | Your computer’s LAN IP or hostname **only** (e.g. `192.168.1.10`) - **no** `http://` or port. Used so QR codes and API URLs point at your machine when testing from a phone. After changing it, **rebuild** the frontend: `docker compose build --no-cache frontend` (or `docker compose up --build`). |
-| `NEXT_PUBLIC_API_URL` | Optional. Full backend base URL if you override the default derived from `NEXT_PUBLIC_DEV_HOST`. |
-| `NEXT_PUBLIC_APP_URL` | Optional. Full frontend base URL override. |
+| `NEXT_PUBLIC_API_URL` | Optional locally; **required on Vercel** unless you rely only on dev host. Set to your deployed API base (e.g. `https://keepfresh-api.onrender.com`) with **no** trailing slash. |
+| `NEXT_PUBLIC_APP_URL` | Optional. Full frontend URL (e.g. `https://your-app.vercel.app`). Used for QR links and consistent app base in production. |
 
 **Local dev without Docker (`npm run dev` in `frontend/`):** put `NEXT_PUBLIC_DEV_HOST` (and optional overrides) in **`frontend/.env.local`**, then restart the dev server.
 
 **Note:** Your laptop’s LAN IP can change when you switch Wi‑Fi or hotspot. Update `NEXT_PUBLIC_DEV_HOST` and rebuild the frontend image when it does.
+
+---
+
+## Deployment (Render backend + Vercel frontend)
+
+You need a MongoDB reachable from Render. Two common options:
+
+| Option | Notes |
+|--------|--------|
+| **MongoDB on Render** | `render.yaml` includes a **private service** running Mongo (from [render-examples/mongodb](https://github.com/render-examples/mongodb)) with a persistent disk. The API gets `MONGODB_HOST` on Render’s private network (see [Deploy MongoDB](https://render.com/docs/deploy-mongodb)). Private services with disks are often **paid** instance types; check Render pricing. |
+| **MongoDB Atlas** | Free tier is common for class projects. Set **`MONGODB_URI`** to your `mongodb+srv://...` connection string in the Render dashboard. If `MONGODB_URI` is set, it **overrides** `MONGODB_HOST` / `MONGODB_PORT`. |
+
+The app uses the database name **`keepfresh`** (include it in the path if your Atlas URI needs it, e.g. `...mongodb.net/keepfresh`).
+
+### Render (FastAPI / Docker)
+
+1. Push this repo to GitHub (or connect GitLab).
+2. In the [Render dashboard](https://dashboard.render.com), create a **Blueprint** from `render.yaml` in the repo root (MongoDB private service + web service), **or** create only a **Web Service** and point **`MONGODB_URI`** at Atlas manually:
+   - **Environment:** Docker
+   - **Dockerfile path:** `backend/Dockerfile`
+   - **Docker build context:** `backend`
+3. Set **environment variables** in Render (see `.env.example` and table above). Typically:
+   - Database: either rely on **`MONGODB_HOST`** / **`MONGODB_PORT`** from the blueprint (Mongo on Render), **or** set **`MONGODB_URI`** (Atlas) and you can remove or ignore the host-based vars.
+   - `OPEN_API_KEY` (if you use receipts / recommendations)
+   - `JWT_SECRET` (long random string)
+   - `CORS_ORIGINS` - include your Vercel origin(s), e.g. `https://your-project.vercel.app` (comma-separated if you add preview URLs)
+4. Deploy and note the public API URL (for example `https://keepfresh-backend.onrender.com`).
+
+The service listens on the `PORT` Render provides; the Dockerfile already uses it.
+
+### Vercel (Next.js)
+
+1. Import the repo in [Vercel](https://vercel.com) and set **Root Directory** to **`frontend`**.
+2. Under **Environment Variables** (Production, and Preview if you want previews to hit a real API), set:
+   - `NEXT_PUBLIC_API_URL` = your Render API base URL, e.g. `https://your-service.onrender.com`
+   - Optionally `NEXT_PUBLIC_APP_URL` = your Vercel site URL, e.g. `https://your-project.vercel.app` (helps QR and links)
+3. Deploy. Redeploy the frontend after changing any `NEXT_PUBLIC_*` variable.
+
+**Preview deployments:** Each Vercel preview has a different origin. Add those URLs to `CORS_ORIGINS` on Render if you test the full stack against preview builds, or test production only.
 
 ---
 
@@ -156,7 +204,7 @@ Next.js inlines `NEXT_PUBLIC_*` at **build** time. For `docker compose`, put the
 
 ## Development without Docker (optional)
 
-- **Backend:** Python 3.11+, install `backend/requirements.txt`, run MongoDB locally or point `MongoClient` at your URI (the code currently uses `mongodb://mongodb:27017` for Docker; adjust for local runs).
+- **Backend:** Python 3.11+, install `backend/requirements.txt`, set `MONGODB_URI` or use local MongoDB (default `mongodb://mongodb:27017` matches Docker Compose).
 - **Frontend:** `cd frontend && npm install && npm run dev` (listens on `0.0.0.0`). Use `frontend/.env.local` for `NEXT_PUBLIC_*`.
 
 ## Tests
