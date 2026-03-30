@@ -12,6 +12,7 @@ KeepFresh helps you track groceries and expiry dates, reduce waste, and get shop
 | AI       | OpenAI API (receipt parsing + recommendations) |
 
 Interactive API docs: **http://localhost:8000/docs** (when the backend is running).
+Note: Customer Interview Videos are uploaded with a link in the eclass submission document
 
 ## Features (high level)
 
