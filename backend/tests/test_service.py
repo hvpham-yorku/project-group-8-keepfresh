@@ -71,7 +71,7 @@ def test_user_exists_by_username():
 
 def test_create_user_inserts_when_not_existing():
     service = _make_service_with_fake_collection()
-    user = User(username="test-username", password="secret")
+    user = User(username="test-username", password="secret", email="test@example.com")
 
     service.create_user(user)
 
@@ -84,7 +84,7 @@ def test_create_user_inserts_when_not_existing():
 def test_create_user_raises_when_username_taken():
     service = _make_service_with_fake_collection()
     service.users_collection.insert_one({"username": "test-username", "password": "secret"})
-    user = User(username="test-username", password="other")
+    user = User(username="test-username", password="other", email="other@example.com")
 
     with pytest.raises(ValueError):
         service.create_user(user)
@@ -93,8 +93,8 @@ def test_create_user_raises_when_username_taken():
 def test_find_user_returns_matching_user():
     # Signup stores bcrypt; find_user must verify plaintext against hash.
     service = _make_service_with_fake_collection()
-    service.create_user(User(username="test-username", password="secret"))
-    user = User(username="test-username", password="secret")
+    service.create_user(User(username="test-username", password="secret", email="test@example.com"))
+    user = User(username="test-username", password="secret", email="test@example.com")
 
     found = service.find_user(user)
 
@@ -108,7 +108,7 @@ def test_find_user_accepts_legacy_plaintext_password():
     legacy_doc = {"username": "legacy", "password": "legacy-pass"}
     service.users_collection.insert_one(legacy_doc)
 
-    found = service.find_user(User(username="legacy", password="legacy-pass"))
+    found = service.find_user(User(username="legacy", password="legacy-pass", email="legacy@example.com"))
 
     assert found == legacy_doc
 
