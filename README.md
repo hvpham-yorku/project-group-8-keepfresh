@@ -163,10 +163,16 @@ Next.js inlines `NEXT_PUBLIC_*` at **build** time. For `docker compose`, put the
 
 ## Tests
 
-**Backend (pytest):** install dependencies, then from `backend/` run:
+**Backend (pytest - unit tests):** install dependencies, then from `backend/` run:
 
 ```bash
 cd backend && pytest
+```
+**Backend (pytest - integration tests):** using docker
+```
+First Build via command : docker-compose up --build
+Second, Open a new terminal and switch to backend via : cd backend
+Third, On the new terminal Run This: docker exec -it keepfresh-backend python3 -m pytest tests/integration_tests.py -v
 ```
 
 **Frontend (Playwright e2e):** from `frontend/`, run `npm install` then `npx playwright install` once (installs browsers). Playwright starts `npm run dev` automatically unless a dev server is already running (`playwright.config.ts`). Then:
