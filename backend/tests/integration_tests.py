@@ -21,7 +21,7 @@ class TestIntegration:
         self.mongo.close()
 
     def test_signup_API_call(self):
-        payload = {"username": "testing", "password" : "testing123"}
+        payload = {"username": "testing", "password" : "testing123", "email" : "testing@gmail.com"}
         response = self.client.post("/signup", json=payload)
         check_user = self.db["users"].find_one({"username" : "testing"})
         assert response.status_code == 200
@@ -30,7 +30,7 @@ class TestIntegration:
         assert check_user["username"] == "testing"
 
     def test_login_API_call(self):
-        payload = {"username": "testing", "password" : "testing123"}
+        payload = {"username": "testing", "password" : "testing123", "email" : "testing@gmail.com"}
         response = self.client.post("/signup", json=payload)
         check_user = self.db["users"].find_one({"username" : "testing"})
         assert response.status_code == 200
@@ -42,7 +42,7 @@ class TestIntegration:
         assert response.json()["status"] == "ok"
 
     def test_AddingFoodItem_API_call(self):
-        payload = {"username": "testing", "password" : "testing123"}
+        payload = {"username": "testing", "password" : "testing123", "email" : "testing@gmail.com"}
         response = self.client.post("/signup", json=payload)
         check_user = self.db["users"].find_one({"username" : "testing"})
         assert response.status_code == 200
@@ -65,7 +65,7 @@ class TestIntegration:
 
 
     def test_GettingFoodItems_API_call(self):
-        payload = {"username": "testing", "password" : "testing123"}
+        payload = {"username": "testing", "password" : "testing123", "email" : "testing@gmail.com"}
         response = self.client.post("/signup", json=payload)
         check_user = self.db["users"].find_one({"username" : "testing"})
         assert response.status_code == 200
@@ -89,7 +89,7 @@ class TestIntegration:
 
 
     def test_DeletingFoodItem_API_call(self):
-        payload = {"username": "testing", "password" : "testing123"}
+        payload = {"username": "testing", "password" : "testing123", "email" : "testing@gmail.com"}
         response = self.client.post("/signup", json=payload)
         check_user = self.db["users"].find_one({"username" : "testing"})
         assert response.status_code == 200
@@ -113,7 +113,7 @@ class TestIntegration:
         assert response.status_code == 200
 
     def test_UpdatingFoodItem_API_call(self):
-        payload = {"username": "testing", "password" : "testing123"}
+        payload = {"username": "testing", "password" : "testing123", "email" : "testing@gmail.com"}
         response = self.client.post("/signup", json=payload)
         check_user = self.db["users"].find_one({"username" : "testing"})
         assert response.status_code == 200
